@@ -1,0 +1,118 @@
+name: Deploy to AWS (Serverless S3, CloudFront & Lambda)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: 'production-deploy'
+  cancel-in-progress: false
+
+jobs:
+  # =========================================================================
+  # JOB 1: Deploy Backend API to AWS Lambda (Serverless)
+  # =========================================================================
+  deploy-backend:
+    name: Deploy Backend to AWS Lambda
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # Support modern OIDC Role Authentication (Passwordless / Keyless)
+      - name: Configure AWS Credentials (OIDC Role)
+        if: ${{ (vars.AWS_ROLE_ARN || secrets.AWS_ROLE_ARN) != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN || secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || secrets.AWS_REGION || 'ap-south-1' }}
+
+      # Fallback to IAM User Access Keys if OIDC Role is not provided
+      - name: Configure AWS Credentials (IAM Access Keys Fallback)
+        if: ${{ (vars.AWS_ROLE_ARN || secrets.AWS_ROLE_ARN) == '' && (secrets.AWS_ACCESS_KEY_ID || vars.AWS_ACCESS_KEY_ID) != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID || vars.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION || secrets.AWS_REGION || 'ap-south-1' }}
+
+      - name: Package Backend Code
+        run: |
+          cd server
+          zip -r ../lambda-bundle.zip lambda.mjs lib/freight-domain.mjs lib/security.mjs data/CONSOLIDATED_AIR_FREIGHT_RATES.csv package.json
+          cd ..
+
+      - name: Update Lambda Function Code
+        run: |
+          aws lambda update-function-code \
+            --function-name ${{ vars.AWS_LAMBDA_FUNCTION_NAME || secrets.AWS_LAMBDA_FUNCTION_NAME || 'jfll-booking-api' }} \
+            --zip-file fileb://lambda-bundle.zip
+
+  # =========================================================================
+  # JOB 2: Build & Deploy Frontend to S3 + CloudFront
+  # =========================================================================
+  deploy-frontend:
+    name: Build & Deploy Frontend (S3 + CloudFront)
+    needs: deploy-backend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install Frontend Dependencies
+        working-directory: ./client
+        run: pnpm install --frozen-lockfile || pnpm install
+
+      - name: Run TypeScript Typecheck
+        working-directory: ./client
+        run: pnpm run typecheck
+
+      - name: Build Next.js Production Static Bundle
+        working-directory: ./client
+        env:
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL || secrets.NEXT_PUBLIC_API_URL || '' }}
+        run: pnpm run build
+
+      # Support modern OIDC Role Authentication (Passwordless / Keyless)
+      - name: Configure AWS Credentials (OIDC Role)
+        if: ${{ (vars.AWS_ROLE_ARN || secrets.AWS_ROLE_ARN) != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN || secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || secrets.AWS_REGION || 'ap-south-1' }}
+
+      # Fallback to IAM User Access Keys if OIDC Role is not provided
+      - name: Configure AWS Credentials (IAM Access Keys Fallback)
+        if: ${{ (vars.AWS_ROLE_ARN || secrets.AWS_ROLE_ARN) == '' && (secrets.AWS_ACCESS_KEY_ID || vars.AWS_ACCESS_KEY_ID) != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID || vars.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION || secrets.AWS_REGION || 'ap-south-1' }}
+
+      - name: Sync Static Assets to S3
+        run: |
+          aws s3 sync client/out s3://${{ vars.AWS_S3_BUCKET_NAME || secrets.AWS_S3_BUCKET_NAME }} --delete
+
+      - name: Invalidate CloudFront CDN Cache
+        if: ${{ (vars.AWS_CLOUDFRONT_DISTRIBUTION_ID || secrets.AWS_CLOUDFRONT_DISTRIBUTION_ID) != '' }}
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ vars.AWS_CLOUDFRONT_DISTRIBUTION_ID || secrets.AWS_CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"

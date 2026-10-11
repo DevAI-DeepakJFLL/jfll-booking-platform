@@ -1,0 +1,228 @@
+openapi: 3.1.0
+info:
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: rates
+    description: Air freight rates and quotation engine operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /rates/quote:
+    post:
+      operationId: getRatesQuote
+      tags: [rates]
+      summary: Calculate air freight quotes
+      description: Returns ranked carrier rates based on origin, destination, weight, and commodity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuoteRequest"
+      responses:
+        "200":
+          description: Quotation results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuoteResponse"
+
+  /rates/sync-s3:
+    post:
+      operationId: syncRatesToS3
+      tags: [rates]
+      summary: Sync consolidated rate sheets to S3
+      description: Saves consolidated CSV and raw sheets to S3 storage bucket and registers in database
+      responses:
+        "200":
+          description: Sync confirmation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncS3Response"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    PieceDimension:
+      type: object
+      properties:
+        pieces:
+          type: integer
+        length:
+          type: number
+        width:
+          type: number
+        height:
+          type: number
+        weightPerPiece:
+          type: number
+      required:
+        - pieces
+        - length
+        - width
+        - height
+        - weightPerPiece
+
+    QuoteRequest:
+      type: object
+      properties:
+        origin:
+          type: string
+        destination:
+          type: string
+        weight:
+          type: number
+        volume:
+          type: number
+        pieces:
+          type: integer
+        cargoType:
+          type: string
+        readyDate:
+          type: string
+        pieceLines:
+          type: array
+          items:
+            $ref: "#/components/schemas/PieceDimension"
+      required:
+        - origin
+        - destination
+        - weight
+        - cargoType
+
+    RateBreakdownItem:
+      type: object
+      properties:
+        id:
+          type: string
+        carrier:
+          type: string
+        code:
+          type: string
+        service:
+          type: string
+        departure:
+          type: string
+        arrival:
+          type: string
+        transit:
+          type: string
+        chargeableWeight:
+          type: number
+        ratePerKg:
+          type: number
+        baseFreight:
+          type: number
+        fuelSecurity:
+          type: number
+        fsc:
+          type: number
+        ssc:
+          type: number
+        originTHC:
+          type: number
+        awbFee:
+          type: number
+        amsFee:
+          type: number
+        tax:
+          type: number
+        total:
+          type: number
+        contractTotal:
+          type: number
+        direct:
+          type: boolean
+        recommended:
+          type: boolean
+        cutoff:
+          type: string
+        included:
+          type: array
+          items:
+            type: string
+      required:
+        - id
+        - carrier
+        - code
+        - service
+        - total
+        - baseFreight
+        - fuelSecurity
+        - originTHC
+        - tax
+        - chargeableWeight
+
+    QuoteResponse:
+      type: object
+      properties:
+        origin:
+          type: string
+        destination:
+          type: string
+        actualWeight:
+          type: number
+        volumetricWeight:
+          type: number
+        chargeableWeight:
+          type: number
+        rates:
+          type: array
+          items:
+            $ref: "#/components/schemas/RateBreakdownItem"
+      required:
+        - origin
+        - destination
+        - actualWeight
+        - volumetricWeight
+        - chargeableWeight
+        - rates
+
+    SyncS3Response:
+      type: object
+      properties:
+        success:
+          type: boolean
+        s3Key:
+          type: string
+        s3Bucket:
+          type: string
+        s3Url:
+          type: string
+        recordCount:
+          type: integer
+        timestamp:
+          type: string
+      required:
+        - success
+        - s3Key
+        - s3Bucket
+        - recordCount
+        - timestamp
