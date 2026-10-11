@@ -25,11 +25,28 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ vars.AWS_REGION }}
+        id: aws-auth
+        env:
+          SECRET_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          SECRET_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          echo "=== Checking AWS Credentials Configuration ==="
+          KEY_ID="${SECRET_KEY_ID:-${{ vars.AWS_ACCESS_KEY_ID }}}"
+          SEC_KEY="${SECRET_KEY:-${{ vars.AWS_SECRET_ACCESS_KEY }}}"
+          REGION="${{ vars.AWS_REGION || 'ap-south-1' }}"
+
+          if [ -z "$KEY_ID" ] || [ -z "$SEC_KEY" ]; then
+            echo "::error::AWS credentials not found! Please ensure AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are added to GitHub (Repository Settings -> Secrets and variables -> Actions -> Secrets)."
+            echo "Status: AWS_ACCESS_KEY_ID is $([ -n "$KEY_ID" ] && echo 'PRESENT' || echo 'MISSING')"
+            echo "Status: AWS_SECRET_ACCESS_KEY is $([ -n "$SEC_KEY" ] && echo 'PRESENT' || echo 'MISSING')"
+            exit 1
+          fi
+
+          echo "Configuring AWS credentials..."
+          aws configure set aws_access_key_id "$KEY_ID"
+          aws configure set aws_secret_access_key "$SEC_KEY"
+          aws configure set default.region "$REGION"
+          echo "AWS credentials configured successfully for region $REGION."
 
       - name: Package Backend Code
         run: |
@@ -65,11 +82,23 @@ jobs:
           version: 9
 
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ vars.AWS_REGION }}
+        id: aws-auth
+        env:
+          SECRET_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          SECRET_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          KEY_ID="${SECRET_KEY_ID:-${{ vars.AWS_ACCESS_KEY_ID }}}"
+          SEC_KEY="${SECRET_KEY:-${{ vars.AWS_SECRET_ACCESS_KEY }}}"
+          REGION="${{ vars.AWS_REGION || 'ap-south-1' }}"
+
+          if [ -z "$KEY_ID" ] || [ -z "$SEC_KEY" ]; then
+            echo "::error::AWS credentials missing."
+            exit 1
+          fi
+
+          aws configure set aws_access_key_id "$KEY_ID"
+          aws configure set aws_secret_access_key "$SEC_KEY"
+          aws configure set default.region "$REGION"
 
       - name: Install Frontend Dependencies
         working-directory: ./client
