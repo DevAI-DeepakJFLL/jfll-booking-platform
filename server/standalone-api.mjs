@@ -68,20 +68,41 @@ function calculateQuote({ origin, destination, actualWeight, volumetricWeight, c
   }
 
   const calculated = matched.map((r, idx) => {
-    let ratePerKg = 0;
-    const cw = chargeableWeight;
-    if (cw >= 1000 && r.rate_1000) ratePerKg = Number(r.rate_1000);
-    else if (cw >= 500 && r.rate_500) ratePerKg = Number(r.rate_500);
-    else if (cw >= 300 && r.rate_300) ratePerKg = Number(r.rate_300);
-    else if (cw >= 250 && r.rate_250) ratePerKg = Number(r.rate_250);
-    else if (cw >= 100 && r.rate_100) ratePerKg = Number(r.rate_100);
-    else if (cw >= 45 && r.rate_45) ratePerKg = Number(r.rate_45);
-    else ratePerKg = Number(r.rate_normal) || Number(r.min_charge) || 150;
-
     const multiplier = isConnecting ? 1.35 : 1.0;
-    const effectiveRate = Math.round(ratePerKg * multiplier);
+    const cw = chargeableWeight;
 
-    const baseFreight = Math.max(Number(r.min_charge) || 0, Math.round(effectiveRate * cw));
+    // 1. Build sorted active weight tiers for carrier
+    const tiers = [];
+    if (r.rate_normal && Number(r.rate_normal) > 0) tiers.push({ minWeight: 0, rate: Number(r.rate_normal) });
+    if (r.rate_45 && Number(r.rate_45) > 0)         tiers.push({ minWeight: 45, rate: Number(r.rate_45) });
+    if (r.rate_100 && Number(r.rate_100) > 0)       tiers.push({ minWeight: 100, rate: Number(r.rate_100) });
+    if (r.rate_250 && Number(r.rate_250) > 0)       tiers.push({ minWeight: 250, rate: Number(r.rate_250) });
+    if (r.rate_300 && Number(r.rate_300) > 0)       tiers.push({ minWeight: 300, rate: Number(r.rate_300) });
+    if (r.rate_500 && Number(r.rate_500) > 0)       tiers.push({ minWeight: 500, rate: Number(r.rate_500) });
+    if (r.rate_1000 && Number(r.rate_1000) > 0)     tiers.push({ minWeight: 1000, rate: Number(r.rate_1000) });
+
+    let naturalIdx = 0;
+    for (let i = 0; i < tiers.length; i++) {
+      if (cw >= tiers[i].minWeight) naturalIdx = i;
+    }
+
+    let effectiveRate = tiers[naturalIdx] ? Math.round(tiers[naturalIdx].rate * multiplier) : 150;
+    let baseFreight = Math.round(effectiveRate * cw);
+
+    // 2. Break-even check against higher slabs: ((NextRate * NextWeight) / CurrentRate)
+    for (let j = naturalIdx + 1; j < tiers.length; j++) {
+      const higherRate = Math.round(tiers[j].rate * multiplier);
+      const higherFreight = Math.round(tiers[j].minWeight * higherRate);
+      if (higherFreight < baseFreight) {
+        baseFreight = higherFreight;
+        effectiveRate = higherRate;
+      }
+    }
+
+    // 3. Absolute minimum charge floor check
+    if (r.min_charge && Number(r.min_charge) > 0) {
+      baseFreight = Math.max(baseFreight, Number(r.min_charge));
+    }
     const rawFsc = Number(r.fsc_per_kg);
     const rawSsc = Number(r.ssc_per_kg);
     const effectiveFsc = !isNaN(rawFsc) && rawFsc > 0 ? rawFsc : 18.0;

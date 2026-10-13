@@ -235,16 +235,37 @@ function calculateOfflineRates(input: QuoteInput, cw: number) {
   const pool = matching.length > 0 ? matching : fallbackRoute.length > 0 ? fallbackRoute : (consolidatedData as any[]).slice(0, 15);
 
   const rates: RateItem[] = pool.map((r, idx) => {
-    // tier rate selection
-    let ratePerKg = r.rate_normal || 200;
-    if (cw >= 1000 && r.rate_1000 != null) ratePerKg = r.rate_1000;
-    else if (cw >= 500 && r.rate_500 != null) ratePerKg = r.rate_500;
-    else if (cw >= 300 && r.rate_300 != null) ratePerKg = r.rate_300;
-    else if (cw >= 250 && r.rate_250 != null) ratePerKg = r.rate_250;
-    else if (cw >= 100 && r.rate_100 != null) ratePerKg = r.rate_100;
-    else if (cw >= 45 && r.rate_45 != null) ratePerKg = r.rate_45;
+    // 1. Build sorted active weight tiers for carrier
+    const tiers: { minWeight: number; rate: number }[] = [];
+    if (r.rate_normal && Number(r.rate_normal) > 0) tiers.push({ minWeight: 0, rate: Number(r.rate_normal) });
+    if (r.rate_45 && Number(r.rate_45) > 0)         tiers.push({ minWeight: 45, rate: Number(r.rate_45) });
+    if (r.rate_100 && Number(r.rate_100) > 0)       tiers.push({ minWeight: 100, rate: Number(r.rate_100) });
+    if (r.rate_250 && Number(r.rate_250) > 0)       tiers.push({ minWeight: 250, rate: Number(r.rate_250) });
+    if (r.rate_300 && Number(r.rate_300) > 0)       tiers.push({ minWeight: 300, rate: Number(r.rate_300) });
+    if (r.rate_500 && Number(r.rate_500) > 0)       tiers.push({ minWeight: 500, rate: Number(r.rate_500) });
+    if (r.rate_1000 && Number(r.rate_1000) > 0)     tiers.push({ minWeight: 1000, rate: Number(r.rate_1000) });
 
-    const baseFreight = Math.max(r.min_charge || 0, Math.round(cw * ratePerKg));
+    let naturalIdx = 0;
+    for (let i = 0; i < tiers.length; i++) {
+      if (cw >= tiers[i].minWeight) naturalIdx = i;
+    }
+
+    let ratePerKg = tiers[naturalIdx] ? tiers[naturalIdx].rate : 200;
+    let baseFreight = Math.round(cw * ratePerKg);
+
+    // 2. Break-even check against higher slabs: ((NextRate * NextWeight) / CurrentRate)
+    for (let j = naturalIdx + 1; j < tiers.length; j++) {
+      const higherFreight = Math.round(tiers[j].minWeight * tiers[j].rate);
+      if (higherFreight < baseFreight) {
+        baseFreight = higherFreight;
+        ratePerKg = tiers[j].rate;
+      }
+    }
+
+    // 3. Absolute minimum charge floor check
+    if (r.min_charge && Number(r.min_charge) > 0) {
+      baseFreight = Math.max(baseFreight, Number(r.min_charge));
+    }
     const rawFsc = Number(r.fsc_per_kg);
     const rawSsc = Number(r.ssc_per_kg);
     const effectiveFsc = !isNaN(rawFsc) && rawFsc > 0 ? rawFsc : 18.0;

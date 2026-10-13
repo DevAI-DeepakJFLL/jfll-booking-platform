@@ -158,18 +158,52 @@ export class RateEngineService {
   }
 
   /**
-   * Evaluates IATA rate tier for given chargeable weight
+   * Evaluates IATA rate tier and break-even slab logic for given chargeable weight
    */
-  private getRateForWeight(row: RawRateRow, weight: number): number {
-    if (weight >= 1000 && row.rate_1000 != null) return row.rate_1000;
-    if (weight >= 500 && row.rate_500 != null) return row.rate_500;
-    if (weight >= 300 && row.rate_300 != null) return row.rate_300;
-    if (weight >= 250 && row.rate_250 != null) return row.rate_250;
-    if (weight >= 100 && row.rate_100 != null) return row.rate_100;
-    if (weight >= 45 && row.rate_45 != null) return row.rate_45;
-    if (row.rate_normal != null) return row.rate_normal;
-    // Fallback if specific breaks missing
-    return row.rate_45 || row.rate_100 || 200;
+  private evaluateBreakEvenFreight(row: RawRateRow, weight: number): {
+    ratePerKg: number;
+    baseFreight: number;
+  } {
+    const tiers: { minWeight: number; rate: number }[] = [];
+    if (row.rate_normal != null && row.rate_normal > 0) tiers.push({ minWeight: 0, rate: row.rate_normal });
+    if (row.rate_45 != null && row.rate_45 > 0)         tiers.push({ minWeight: 45, rate: row.rate_45 });
+    if (row.rate_100 != null && row.rate_100 > 0)       tiers.push({ minWeight: 100, rate: row.rate_100 });
+    if (row.rate_250 != null && row.rate_250 > 0)       tiers.push({ minWeight: 250, rate: row.rate_250 });
+    if (row.rate_300 != null && row.rate_300 > 0)       tiers.push({ minWeight: 300, rate: row.rate_300 });
+    if (row.rate_500 != null && row.rate_500 > 0)       tiers.push({ minWeight: 500, rate: row.rate_500 });
+    if (row.rate_1000 != null && row.rate_1000 > 0)     tiers.push({ minWeight: 1000, rate: row.rate_1000 });
+
+    if (tiers.length === 0) {
+      const fallback = row.rate_normal || row.min_charge || 150;
+      const computed = Math.round(weight * fallback);
+      return {
+        ratePerKg: fallback,
+        baseFreight: row.min_charge ? Math.max(row.min_charge, computed) : computed,
+      };
+    }
+
+    let naturalIdx = 0;
+    for (let i = 0; i < tiers.length; i++) {
+      if (weight >= tiers[i].minWeight) naturalIdx = i;
+    }
+
+    let bestRate = tiers[naturalIdx].rate;
+    let bestFreight = Math.round(weight * bestRate);
+
+    // Evaluate break-even threshold against higher slabs: ((NextRate * NextWeight) / CurrentRate)
+    for (let j = naturalIdx + 1; j < tiers.length; j++) {
+      const higherFreight = Math.round(tiers[j].minWeight * tiers[j].rate);
+      if (higherFreight < bestFreight) {
+        bestFreight = higherFreight;
+        bestRate = tiers[j].rate;
+      }
+    }
+
+    if (row.min_charge != null && row.min_charge > 0) {
+      bestFreight = Math.max(bestFreight, row.min_charge);
+    }
+
+    return { ratePerKg: bestRate, baseFreight };
   }
 
   /**
@@ -217,9 +251,7 @@ export class RateEngineService {
     }
 
     filteredByCat.forEach((row, idx) => {
-      const ratePerKg = this.getRateForWeight(row, chargeableWeight);
-      const computedBase = Math.round(chargeableWeight * ratePerKg);
-      const baseFreight = row.min_charge ? Math.max(row.min_charge, computedBase) : computedBase;
+      const { ratePerKg, baseFreight } = this.evaluateBreakEvenFreight(row, chargeableWeight);
 
       // Surcharges
       const fscAmount = Math.round(
