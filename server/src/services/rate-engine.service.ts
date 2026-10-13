@@ -160,7 +160,7 @@ export class RateEngineService {
   /**
    * Evaluates IATA rate tier and break-even slab logic for given chargeable weight
    */
-  private evaluateBreakEvenFreight(row: RawRateRow, weight: number): {
+  private evaluateBreakEvenFreight(row: RawRateRow, weight: number, multiplier: number = 1.0): {
     ratePerKg: number;
     baseFreight: number;
   } {
@@ -174,7 +174,7 @@ export class RateEngineService {
     if (row.rate_1000 != null && row.rate_1000 > 0)     tiers.push({ minWeight: 1000, rate: row.rate_1000 });
 
     if (tiers.length === 0) {
-      const fallback = row.rate_normal || row.min_charge || 150;
+      const fallback = Math.round((row.rate_normal || row.min_charge || 150) * multiplier);
       const computed = Math.round(weight * fallback);
       return {
         ratePerKg: fallback,
@@ -187,15 +187,16 @@ export class RateEngineService {
       if (weight >= tiers[i].minWeight) naturalIdx = i;
     }
 
-    let bestRate = tiers[naturalIdx].rate;
+    let bestRate = Math.round(tiers[naturalIdx].rate * multiplier);
     let bestFreight = Math.round(weight * bestRate);
 
     // Evaluate break-even threshold against higher slabs: ((NextRate * NextWeight) / CurrentRate)
     for (let j = naturalIdx + 1; j < tiers.length; j++) {
-      const higherFreight = Math.round(tiers[j].minWeight * tiers[j].rate);
+      const higherRate = Math.round(tiers[j].rate * multiplier);
+      const higherFreight = Math.round(tiers[j].minWeight * higherRate);
       if (higherFreight < bestFreight) {
         bestFreight = higherFreight;
-        bestRate = tiers[j].rate;
+        bestRate = higherRate;
       }
     }
 
@@ -219,7 +220,9 @@ export class RateEngineService {
     chargeableWeight: number;
     rates: CalculatedQuoteItem[];
   } {
-    const chargeableWeight = Math.max(params.actualWeight, params.volumetricWeight);
+    const rawWeight = Math.max(params.actualWeight, params.volumetricWeight);
+    // IATA TACT Rule 1.3.2: Round chargeable weight up to nearest 0.5 kg
+    const chargeableWeight = Math.ceil(rawWeight * 2) / 2;
     const destUpper = params.destination.toUpperCase();
     const origUpper = params.origin.toUpperCase();
 
@@ -243,15 +246,31 @@ export class RateEngineService {
     let filteredByCat = candidateRows.filter(
       (r) => r.cargo_category.toLowerCase() === categoryTarget.toLowerCase()
     );
+    let isCategoryFallback = false;
     if (filteredByCat.length === 0) {
+      isCategoryFallback = true;
       filteredByCat = candidateRows.filter((r) => r.cargo_category === "General cargo");
     }
     if (filteredByCat.length === 0) {
       filteredByCat = candidateRows.slice(0, 8);
     }
 
+    const normCat = categoryTarget.toLowerCase();
+    let classMultiplier = 1.0;
+    let commodityFee = 0;
+
+    if (normCat.includes("dangerous") || normCat.includes("dgr")) {
+      commodityFee = 3500; // Statutory DGR checklist fee
+      if (isCategoryFallback) classMultiplier = 1.25;
+    } else if (normCat.includes("pharma") || normCat.includes("perishable")) {
+      commodityFee = Math.round(Math.max(chargeableWeight * 2.5, 1500));
+      if (isCategoryFallback) classMultiplier = 1.15;
+    } else if (normCat.includes("express")) {
+      if (isCategoryFallback) classMultiplier = 1.30;
+    }
+
     filteredByCat.forEach((row, idx) => {
-      const { ratePerKg, baseFreight } = this.evaluateBreakEvenFreight(row, chargeableWeight);
+      const { ratePerKg, baseFreight } = this.evaluateBreakEvenFreight(row, chargeableWeight, classMultiplier);
 
       // Surcharges
       const fscAmount = Math.round(
@@ -271,7 +290,7 @@ export class RateEngineService {
       const ctgAmount = Math.round(
         Math.max((row.ctg_per_kg || 0) * chargeableWeight, row.ctg_min || 0)
       );
-      const originTHC = xrayAmount + miscAmount + ctgAmount + (originUpperThc(chargeableWeight));
+      const originTHC = xrayAmount + miscAmount + ctgAmount + (originUpperThc(chargeableWeight)) + commodityFee;
 
       const awbFee = row.awb_fee || 350;
       const amsFee = row.ams_mawb || 0;
@@ -285,6 +304,19 @@ export class RateEngineService {
 
       const flightCode = `${row.carrier_code || "JF"} ${100 + ((idx * 73) % 800)}`;
       const isDirect = idx % 2 === 0;
+
+      const includedServices = [
+        `${row.service_tier || 'Cargo'} guaranteed slot`,
+        "MIAL Air Cargo handling & screening",
+        "Automated e-AWB compliance filing",
+      ];
+      if (commodityFee > 0) {
+        if (normCat.includes("dangerous") || normCat.includes("dgr")) {
+          includedServices.push("DGR Acceptance & Inspection");
+        } else {
+          includedServices.push("Cool Chain Storage & Apron Monitoring");
+        }
+      }
 
       calculated.push({
         id: `rate-${row.carrier_code?.toLowerCase() || idx}-${idx}`,
@@ -309,11 +341,7 @@ export class RateEngineService {
         direct: isDirect,
         recommended: idx === 0,
         cutoff: "26 Aug, 18:00",
-        included: [
-          `${row.service_tier} guaranteed slot`,
-          "MIAL Air Cargo handling & screening",
-          "Automated e-AWB compliance filing",
-        ],
+        included: includedServices,
       });
     });
 

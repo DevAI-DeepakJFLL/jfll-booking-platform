@@ -83,7 +83,9 @@ export interface HeavyCargoInquiryResponse {
  * Calculates live freight quotes, attempting backend API first with instant offline fallback.
  */
 export async function fetchLiveOrCalculatedRates(input: QuoteInput): Promise<QuoteResult> {
-  const chargeableWeight = Math.max(input.actualWeight, input.volumetricWeight);
+  const rawWeight = Math.max(input.actualWeight, input.volumetricWeight);
+  // IATA TACT Rule 1.3.2: Round chargeable weight up to nearest 0.5 kg
+  const chargeableWeight = Math.ceil(rawWeight * 2) / 2;
   if (!input.origin || !input.destination || chargeableWeight <= 0) {
     return { chargeableWeight: 0, rates: [] };
   }
@@ -232,9 +234,25 @@ function calculateOfflineRates(input: QuoteInput, cw: number) {
       (r.destination?.toUpperCase() === destUpper || (destUpper === 'DXB' && r.destination === 'DXB'))
   );
 
+  const isCategoryFallback = matching.length === 0;
   const pool = matching.length > 0 ? matching : fallbackRoute.length > 0 ? fallbackRoute : (consolidatedData as any[]).slice(0, 15);
 
   const rates: RateItem[] = pool.map((r, idx) => {
+    // IATA TACT Rule 2.2: Commodity Classification Rates (CCR) & Statutory Surcharges
+    let classMultiplier = 1.0;
+    let commodityFee = 0;
+    const normCat = (input.cargoType || r.cargo_category || '').toLowerCase();
+
+    if (normCat.includes('dangerous') || normCat.includes('dgr')) {
+      commodityFee = 3500; // Statutory MIAL/IGI DGR Acceptance & DG Checklist Inspection fee
+      if (isCategoryFallback) classMultiplier = 1.25; // Standard IATA Class Rate markup for DGR
+    } else if (normCat.includes('pharma') || normCat.includes('perishable')) {
+      commodityFee = Math.round(Math.max(cw * 2.5, 1500)); // Active cold-room / cool-chain handling
+      if (isCategoryFallback) classMultiplier = 1.15; // IATA Class Rate markup for Temperature-Controlled
+    } else if (normCat.includes('express')) {
+      if (isCategoryFallback) classMultiplier = 1.30; // Priority uplift multiplier
+    }
+
     // 1. Build sorted active weight tiers for carrier
     const tiers: { minWeight: number; rate: number }[] = [];
     if (r.rate_normal && Number(r.rate_normal) > 0) tiers.push({ minWeight: 0, rate: Number(r.rate_normal) });
@@ -250,15 +268,16 @@ function calculateOfflineRates(input: QuoteInput, cw: number) {
       if (cw >= tiers[i].minWeight) naturalIdx = i;
     }
 
-    let ratePerKg = tiers[naturalIdx] ? tiers[naturalIdx].rate : 200;
+    let ratePerKg = tiers[naturalIdx] ? Math.round(tiers[naturalIdx].rate * classMultiplier) : 200;
     let baseFreight = Math.round(cw * ratePerKg);
 
     // 2. Break-even check against higher slabs: ((NextRate * NextWeight) / CurrentRate)
     for (let j = naturalIdx + 1; j < tiers.length; j++) {
-      const higherFreight = Math.round(tiers[j].minWeight * tiers[j].rate);
+      const higherRate = Math.round(tiers[j].rate * classMultiplier);
+      const higherFreight = Math.round(tiers[j].minWeight * higherRate);
       if (higherFreight < baseFreight) {
         baseFreight = higherFreight;
-        ratePerKg = tiers[j].rate;
+        ratePerKg = higherRate;
       }
     }
 
@@ -277,7 +296,7 @@ function calculateOfflineRates(input: QuoteInput, cw: number) {
     const xray = Math.round(Math.max((r.xray_per_kg || 0) * cw, r.xray_min || 0));
     const misc = Math.round(Math.max((r.misc_per_kg || 0) * cw, r.misc_min || 0));
     const ctg = Math.round(Math.max((r.ctg_per_kg || 0) * cw, r.ctg_min || 0));
-    const originTHC = xray + misc + ctg + Math.max(500, Math.round(cw * 1.5));
+    const originTHC = xray + misc + ctg + Math.max(500, Math.round(cw * 1.5)) + commodityFee;
 
     const awbFee = r.awb_fee || 350;
     const amsFee = r.ams_mawb || 0;
@@ -285,8 +304,20 @@ function calculateOfflineRates(input: QuoteInput, cw: number) {
     const tax = Math.round(subtotal * 0.05);
     const baseTotal = subtotal + tax;
     const total = Math.round(baseTotal * 1.04); // 4% commercial markup before displaying price
-
     const schedule = getFlightSchedule(r.carrier_code, r.origin || origUpper, r.destination || destUpper, idx);
+
+    const includedServices = [
+      `${r.service_tier || 'Cargo'} allocated uplift`,
+      'Terminal screening & X-ray',
+      'e-AWB generation compliant',
+    ];
+    if (commodityFee > 0) {
+      if (normCat.includes('dangerous') || normCat.includes('dgr')) {
+        includedServices.push('DGR Acceptance & Inspection');
+      } else {
+        includedServices.push('Cool Chain Storage & Apron Monitoring');
+      }
+    }
 
     return {
       id: `rate-${r.carrier_code || idx}-${idx}`,
@@ -304,11 +335,7 @@ function calculateOfflineRates(input: QuoteInput, cw: number) {
       fuelSecurity,
       originTHC,
       tax,
-      included: [
-        `${r.service_tier || 'Cargo'} allocated uplift`,
-        'Terminal screening & X-ray',
-        'e-AWB generation compliant',
-      ],
+      included: includedServices,
       accent: idx === 0 ? '#d8891c' : idx % 2 === 0 ? '#187e9c' : '#263740',
       recommended: false,
       direct: schedule.direct,

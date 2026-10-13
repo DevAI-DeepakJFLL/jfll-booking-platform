@@ -46,7 +46,9 @@ if (fs.existsSync(csvPath)) {
  * Calculates live freight quotes against the tariff dataset.
  */
 function calculateQuote({ origin, destination, actualWeight, volumetricWeight, cargoType }) {
-  const chargeableWeight = Math.max(actualWeight, volumetricWeight);
+  const rawWeight = Math.max(actualWeight, volumetricWeight);
+  // IATA TACT Rule 1.3.2: Chargeable weight rounded up to nearest 0.5 kg
+  const chargeableWeight = Math.ceil(rawWeight * 2) / 2;
   if (!origin || !destination || chargeableWeight <= 0) {
     return { chargeableWeight: 0, rates: [] };
   }
@@ -60,7 +62,9 @@ function calculateQuote({ origin, destination, actualWeight, volumetricWeight, c
   );
 
   // Fallback to route if specific cargo category doesn't have custom tariff
+  let isCategoryFallback = false;
   if (matched.length === 0) {
+    isCategoryFallback = true;
     matched = rates.filter(
       (r) =>
         (!origin || r.origin?.toUpperCase() === origin.toUpperCase()) &&
@@ -76,7 +80,22 @@ function calculateQuote({ origin, destination, actualWeight, volumetricWeight, c
   }
 
   const calculated = matched.map((r, idx) => {
-    const multiplier = isConnecting ? 1.35 : 1.0;
+    // IATA TACT Rule 2.2: Commodity Classification Rates (CCR) & Statutory Surcharges
+    let classMultiplier = 1.0;
+    let commodityFee = 0;
+    const normCat = (cargoType || r.cargo_category || '').toLowerCase();
+
+    if (normCat.includes('dangerous') || normCat.includes('dgr')) {
+      commodityFee = 3500; // Statutory MIAL/IGI DGR Acceptance & DG Checklist Inspection fee
+      if (isCategoryFallback) classMultiplier = 1.25; // Standard IATA Class Rate markup for DGR
+    } else if (normCat.includes('pharma') || normCat.includes('perishable')) {
+      commodityFee = Math.round(Math.max(chargeableWeight * 2.5, 1500)); // Active cold-room / cool-chain handling
+      if (isCategoryFallback) classMultiplier = 1.15; // IATA Class Rate markup for Temperature-Controlled
+    } else if (normCat.includes('express')) {
+      if (isCategoryFallback) classMultiplier = 1.30; // Priority uplift multiplier
+    }
+
+    const multiplier = (isConnecting ? 1.35 : 1.0) * classMultiplier;
     const cw = chargeableWeight;
 
     // 1. Build sorted active weight tiers for carrier
@@ -121,7 +140,7 @@ function calculateQuote({ origin, destination, actualWeight, volumetricWeight, c
     const xray = Math.round(Math.max((Number(r.xray_per_kg) || 3.5) * cw, Number(r.xray_min) || 0));
     const misc = Math.round(Math.max((Number(r.misc_per_kg) || 2) * cw, Number(r.misc_min) || 0));
     const ctg = Math.round(Math.max((Number(r.ctg_per_kg) || 0) * cw, Number(r.ctg_min) || 0));
-    const originTHC = xray + misc + ctg;
+    const originTHC = xray + misc + ctg + commodityFee;
     const awbFee = Number(r.awb_fee) || 800;
     const amsFee = Number(r.ams_mawb) || 0;
     const subtotal = baseFreight + fuelSecurity + originTHC + awbFee + amsFee;
@@ -130,6 +149,21 @@ function calculateQuote({ origin, destination, actualWeight, volumetricWeight, c
     const total = Math.round(baseTotal * 1.04); // 4% commercial markup before displaying price
 
     const schedule = getFlightSchedule(r.carrier_code, r.origin || origin, r.destination || destination, idx);
+
+    const includedServices = [
+      `${r.service_tier || 'Air Freight'} Uplift`,
+      'Fuel & Security Surcharges',
+      'e-AWB Issuance',
+      'X-Ray & Terminal Handling',
+      '5% Air Export GST',
+    ];
+    if (commodityFee > 0) {
+      if (normCat.includes('dangerous') || normCat.includes('dgr')) {
+        includedServices.push('DGR Acceptance & Inspection');
+      } else {
+        includedServices.push('Cool Chain Storage & Apron Monitoring');
+      }
+    }
 
     return {
       id: `lambda-rate-${idx}`,
@@ -156,13 +190,7 @@ function calculateQuote({ origin, destination, actualWeight, volumetricWeight, c
       direct: schedule.direct,
       recommended: false,
       cutoff: schedule.cutoff,
-      included: [
-        `${r.service_tier || 'Air Freight'} Uplift`,
-        'Fuel & Security Surcharges',
-        'e-AWB Issuance',
-        'X-Ray & Terminal Handling',
-        '5% Air Export GST',
-      ],
+      included: includedServices,
     };
   });
 

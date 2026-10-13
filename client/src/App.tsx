@@ -934,7 +934,8 @@ function App() {
   }, [pieceLines]);
 
   const volumetricWeight = Math.round(Math.max(totalVolumetricWeightFromLines, cbmVolWeight) * 10) / 10;
-  const chargeableWeight = Math.max(actualWeight, volumetricWeight);
+  // IATA TACT Rule 1.3.2: Round chargeable weight up to nearest 0.5 kg
+  const chargeableWeight = Math.ceil(Math.max(actualWeight, volumetricWeight) * 2) / 2;
 
   // Fetch / compute dynamic rates from backend API / consolidated dataset
   useEffect(() => {
