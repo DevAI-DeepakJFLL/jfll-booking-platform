@@ -887,7 +887,6 @@ function App() {
   const [sortAsc, setSortAsc] = useState<boolean>(true);
   const [isSearchingRates, setIsSearchingRates] = useState<boolean>(false);
   const [selectedRate, setSelectedRate] = useState<Rate | null>(null);
-  const [expandedRateId, setExpandedRateId] = useState<string | null>(null);
 
   // Step 2 Piece Dimensions Table
   const [pieceLines, setPieceLines] = useState<PieceLine[]>([]);
@@ -1281,19 +1280,6 @@ function App() {
       // Local fallback
     }
     setCookieVisible(false);
-  };
-
-  const getBreakdown = (rate: Rate): RateBreakdown => {
-    const isContract = isContractUser && Boolean(rate.contractTotal);
-    const total = isContract ? rate.contractTotal! : rate.total;
-    const factor = total / rate.total;
-    return {
-      baseFreight: Math.round(rate.base * factor),
-      fuelSecurity: Math.round(rate.fuelSecurity * factor),
-      originTHC: Math.round(rate.originTHC * factor),
-      gstTax: Math.round(rate.tax * factor),
-      total,
-    };
   };
 
   const handleQuickTrackLookup = (e: React.FormEvent) => {
@@ -1991,9 +1977,6 @@ function App() {
                         ) : (
                           filteredRates.map((rate) => {
                             const finalPrice = isContractUser && rate.contractTotal ? rate.contractTotal : rate.total;
-                            const isExpanded = expandedRateId === rate.id;
-                            const breakdown = getBreakdown(rate);
-                            const unitRate = Math.round(rate.base / (rate.chargeableWeight || chargeableWeight || 1));
                             const isSelected = selectedRate?.id === rate.id;
 
                             return (
@@ -2041,9 +2024,6 @@ function App() {
                                         {formatInr(finalPrice)}
                                       </span>
                                       <span className="text-[11px] font-bold text-[#64748b] font-mulish">all-in</span>
-                                    </div>
-                                    <div className="font-mulish text-xs text-[#64748b] mt-0.5">
-                                      Unit rate: <strong className="font-mono font-bold text-[#187e9c]">₹{unitRate}</strong> / kg
                                     </div>
                                     {isContractUser && rate.contractTotal ? (
                                       <span className="block font-mulish text-[10px] font-bold text-[#16a34a] mt-0.5">
@@ -2106,16 +2086,7 @@ function App() {
                                     <span>Weight: <strong className="text-[#101820]">{chargeableWeight} kg</strong></span>
                                   </div>
 
-                                  <div className="flex items-center justify-end gap-3">
-                                    <button
-                                      type="button"
-                                      onClick={() => setExpandedRateId(isExpanded ? null : rate.id)}
-                                      className="flex items-center gap-1 font-mulish text-xs font-bold text-[#187e9c] hover:underline cursor-pointer py-1.5 px-2"
-                                    >
-                                      <span>{isExpanded ? 'Hide details' : 'Price breakdown'}</span>
-                                      <ChevronDown size={14} className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
-                                    </button>
-
+                                  <div className="flex items-center justify-end">
                                     <button
                                       type="button"
                                       onClick={() => goToBooking(rate)}
@@ -2125,44 +2096,6 @@ function App() {
                                     </button>
                                   </div>
                                 </div>
-
-                                {/* Accordion Itemized Cost Breakdown */}
-                                <AnimatePresence>
-                                  {isExpanded && (
-                                    <motion.div
-                                      initial={{ opacity: 0, height: 0 }}
-                                      animate={{ opacity: 1, height: 'auto' }}
-                                      exit={{ opacity: 0, height: 0 }}
-                                      className="mt-4 pt-4 border-t border-[#eef2f3] space-y-3"
-                                    >
-                                      <div className="text-[11px] font-bold text-[#475569] font-mulish">
-                                        Statutory Itemized Price Breakdown (IATA Export Standard):
-                                      </div>
-                                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 rounded-xl bg-[#f8fafc] p-3 text-[11px] font-mulish border border-[#eef2f3]">
-                                        <div>
-                                          <span className="text-[#908e92] block text-[9px] font-extrabold uppercase">Base Freight</span>
-                                          <strong className="text-xs text-[#101820] font-mono">{formatInr(breakdown.baseFreight)}</strong>
-                                        </div>
-                                        <div>
-                                          <span className="text-[#908e92] block text-[9px] font-extrabold uppercase">Fuel &amp; Security (FSC+SSC)</span>
-                                          <strong className="text-xs text-[#101820] font-mono">{formatInr(breakdown.fuelSecurity)}</strong>
-                                        </div>
-                                        <div>
-                                          <span className="text-[#908e92] block text-[9px] font-extrabold uppercase">Origin THC / Screening</span>
-                                          <strong className="text-xs text-[#101820] font-mono">{formatInr(breakdown.originTHC)}</strong>
-                                        </div>
-                                        <div>
-                                          <span className="text-[#908e92] block text-[9px] font-extrabold uppercase">GST (5% Air Export)</span>
-                                          <strong className="text-xs text-[#101820] font-mono">{formatInr(breakdown.gstTax)}</strong>
-                                        </div>
-                                      </div>
-                                      <div className="text-[10px] text-[#64748b] font-mulish flex items-center gap-1">
-                                        <Check size={12} className="text-[#187e9c]" />
-                                        Includes e-AWB documentation, Sahar cargo complex security screening, and regulatory compliance.
-                                      </div>
-                                    </motion.div>
-                                  )}
-                                </AnimatePresence>
                               </motion.div>
                             );
                           })
@@ -2672,28 +2605,20 @@ function App() {
                             <div className="rounded-2xl border border-[#dfe5e7] bg-[#f8fafc] p-4 text-xs font-mulish space-y-2">
                               <strong className="block text-sm text-[#101820]">Charges Summary</strong>
                               {(() => {
-                                const b = getBreakdown(selectedRate);
-                                const total = booking.doorPickup ? b.total + 2400 : b.total;
+                                const freightPrice = isContractUser && selectedRate.contractTotal ? selectedRate.contractTotal : selectedRate.total;
+                                const total = booking.doorPickup ? freightPrice + 2400 : freightPrice;
                                 return (
                                   <div className="space-y-1.5">
                                     <div className="flex justify-between text-[#65686d]">
-                                      <span>Base Freight:</span>
-                                      <strong className="text-[#101820]">{formatInr(b.baseFreight)}</strong>
-                                    </div>
-                                    <div className="flex justify-between text-[#65686d]">
-                                      <span>Surcharges &amp; THC:</span>
-                                      <strong className="text-[#101820]">{formatInr(b.fuelSecurity + b.originTHC)}</strong>
+                                      <span>Air Freight (All-In):</span>
+                                      <strong className="text-[#101820]">{formatInr(freightPrice)}</strong>
                                     </div>
                                     {booking.doorPickup && (
                                       <div className="flex justify-between text-[#187e9c]">
-                                        <span>Door Pickup:</span>
+                                        <span>Doorstep Factory Collection:</span>
                                         <strong>₹2,400</strong>
                                       </div>
                                     )}
-                                    <div className="flex justify-between text-[#65686d]">
-                                      <span>Export GST (5%):</span>
-                                      <strong className="text-[#101820]">{formatInr(b.gstTax)}</strong>
-                                    </div>
                                     <div className="pt-2 border-t border-[#dfe5e7] flex justify-between font-extrabold text-sm text-[#101820]">
                                       <span>Total Payable:</span>
                                       <span className="text-[#187e9c]">{formatInr(total)}</span>
@@ -3087,7 +3012,7 @@ function App() {
                     Compare airline schedules, cutoffs, and landed costs
                   </h3>
                   <p className="mt-2 text-sm leading-6 text-[#65686d]">
-                    Compare verified commercial schedules across primary carriers. Inspect detailed landed cost breakdowns—base freight, fuel security surcharges (FSC), terminal handling charges (THC), and GST—with strict warehouse cutoff countdowns.
+                    Compare verified commercial schedules across primary carriers. View instant all-in landed rates across verified airlines with strict warehouse cutoff countdowns.
                   </p>
 
                   <div className="mt-4 flex flex-wrap gap-2 font-mulish text-[11px] font-bold text-[#556972]">

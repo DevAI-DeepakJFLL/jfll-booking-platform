@@ -262,7 +262,8 @@ function calculateOfflineRates(input: QuoteInput, cw: number) {
     const amsFee = r.ams_mawb || 0;
     const subtotal = baseFreight + fuelSecurity + originTHC + awbFee + amsFee;
     const tax = Math.round(subtotal * 0.05);
-    const total = subtotal + tax;
+    const baseTotal = subtotal + tax;
+    const total = Math.round(baseTotal * 1.04); // 4% commercial markup before displaying price
 
     const schedule = getFlightSchedule(r.carrier_code, r.origin || origUpper, r.destination || destUpper, idx);
 

@@ -247,7 +247,8 @@ export class RateEngineService {
       const subtotal = baseFreight + fuelSecurity + originTHC + awbFee + amsFee;
       // GST in India for Air Export (5% standard or reverse charge)
       const tax = Math.round(subtotal * 0.05);
-      const total = subtotal + tax;
+      const baseTotal = subtotal + tax;
+      const total = Math.round(baseTotal * 1.04); // 4% commercial markup before displaying price
       const contractTotal = Math.round(total * 0.85); // Pre-negotiated corporate tier
 
       const flightCode = `${row.carrier_code || "JF"} ${100 + ((idx * 73) % 800)}`;

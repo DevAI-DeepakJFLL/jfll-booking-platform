@@ -105,7 +105,8 @@ function calculateQuote({ origin, destination, actualWeight, volumetricWeight, c
     const amsFee = Number(r.ams_mawb) || 0;
     const subtotal = baseFreight + fuelSecurity + originTHC + awbFee + amsFee;
     const tax = Math.round(subtotal * 0.05); // 5% Air Export GST
-    const total = subtotal + tax;
+    const baseTotal = subtotal + tax;
+    const total = Math.round(baseTotal * 1.04); // 4% commercial markup before displaying price
 
     const schedule = getFlightSchedule(r.carrier_code, r.origin || origin, r.destination || destination, idx);
 
