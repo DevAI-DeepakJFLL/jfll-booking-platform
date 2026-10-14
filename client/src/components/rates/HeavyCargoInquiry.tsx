@@ -328,7 +328,7 @@ export const HeavyCargoInquiry: React.FC<HeavyCargoInquiryProps> = ({
         <button
           type="button"
           onClick={onBackToQuote}
-          className="focus-ring inline-flex items-center gap-1.5 rounded-full border border-[#dfe5e7] bg-white px-4 py-2 font-mulish text-xs font-bold text-[#101820] shadow-sm transition hover:bg-[#f4f7f8]"
+          className="focus-ring self-start sm:self-auto inline-flex items-center gap-1.5 rounded-full border border-[#dfe5e7] bg-white min-h-[38px] px-4 py-2 font-mulish text-xs font-bold text-[#101820] shadow-sm transition hover:bg-[#f4f7f8] cursor-pointer"
         >
           <ArrowLeft size={14} /> Modify Shipment Specs
         </button>

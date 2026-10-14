@@ -434,12 +434,12 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="font-mulish mb-2 block text-[11px] font-extrabold uppercase tracking-[.08em] text-[#555c61]">
+      <span className="font-mulish mb-1.5 sm:mb-2 block text-[10px] sm:text-[11px] font-extrabold uppercase tracking-normal sm:tracking-[.08em] text-[#555c61] truncate" title={label}>
         {label}
       </span>
       <input
         data-testid={`input-${label.toLowerCase().replaceAll(' ', '-')}`}
-        className={`booking-input ${invalid ? 'invalid' : ''}`}
+        className={`booking-input min-h-[44px] ${invalid ? 'invalid' : ''}`}
         type={type}
         value={value}
         placeholder={placeholder}
@@ -848,13 +848,14 @@ function App() {
   const [activeStep, setActiveStep] = useState(0);
   const [bookingSubStep, setBookingSubStep] = useState(0);
   const [mobileMenu, setMobileMenu] = useState(false);
-  const [cookieVisible, setCookieVisible] = useState(() => {
+  const [cookieVisible, setCookieVisible] = useState(false);
+  useEffect(() => {
     try {
-      return localStorage.getItem('jf-cookie-consent') !== 'accepted';
-    } catch {
-      return true;
-    }
-  });
+      if (localStorage.getItem('jf-cookie-consent') !== 'accepted') {
+        setCookieVisible(true);
+      }
+    } catch {}
+  }, []);
 
   // Auth / Corporate contract state
   const [isContractUser, setIsContractUser] = useState<boolean>(false);
@@ -867,6 +868,17 @@ function App() {
   const [isTrackModalOpen, setIsTrackModalOpen] = useState<boolean>(false);
   const [trackQuery, setTrackQuery] = useState<string>('');
   const [trackResult, setTrackResult] = useState<ShipmentRecord | null>(null);
+
+  // Mutually exclusive modal openers to prevent stacking
+  const openUidModal = () => {
+    setIsTrackModalOpen(false);
+    setIsUidModalOpen(true);
+  };
+
+  const openTrackModal = () => {
+    setIsUidModalOpen(false);
+    setIsTrackModalOpen(true);
+  };
 
   // Operations Dashboard state
   const [shipmentsList, setShipmentsList] = useState<ShipmentRecord[]>(mockShipments);
@@ -1123,6 +1135,7 @@ function App() {
 
   const submitQuote = (event: React.FormEvent) => {
     event.preventDefault();
+    console.log('SUBMIT QUOTE TRIGGERED:', quote);
     if (
       !quote.origin ||
       !quote.destination ||
@@ -1403,7 +1416,7 @@ function App() {
               Operations
             </a>
             <button
-              onClick={() => setIsTrackModalOpen(true)}
+              onClick={openTrackModal}
               className="font-mulish focus-ring flex items-center gap-1.5 text-[12px] font-bold text-[#187e9c] transition hover:text-[#16243a]"
             >
               <Search size={13} />
@@ -1427,7 +1440,7 @@ function App() {
               </div>
             ) : (
               <button
-                onClick={() => setIsUidModalOpen(true)}
+                onClick={openUidModal}
                 className="focus-ring flex items-center gap-1.5 rounded-full border border-[#c5d0d2] bg-white/80 px-3.5 py-2 font-mulish text-[11px] font-extrabold text-[#16243a] transition hover:bg-white"
                 data-testid="button-contract-login"
               >
@@ -1480,7 +1493,7 @@ function App() {
                 <button
                   onClick={() => {
                     setMobileMenu(false);
-                    setIsTrackModalOpen(true);
+                    openTrackModal();
                   }}
                   className="flex items-center gap-2 text-left text-[#187e9c]"
                 >
@@ -1502,7 +1515,7 @@ function App() {
                     <button
                       onClick={() => {
                         setMobileMenu(false);
-                        setIsUidModalOpen(true);
+                        openUidModal();
                       }}
                       className="flex items-center gap-1.5 text-xs font-bold text-[#101820]"
                     >
@@ -1587,6 +1600,23 @@ function App() {
                     <strong className="text-sm text-[#16243a]">BOM &rarr; DXB &middot; daily widebody</strong>
                   </div>
                 </motion.div>
+
+                {/* Mobile Proof Badges Strip */}
+                <div className="sm:hidden mt-6 flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+                  {[
+                    ['Since 1986', '38+ yrs logistics'],
+                    ['IATA Agent', 'Certified cargo'],
+                    ['NSE Listed', 'JETFREIGHT'],
+                    ['150+ Hubs', 'Direct gateways'],
+                  ].map(([value, label]) => (
+                    <div key={label} className="hero-proof rounded-xl px-3 py-2 shrink-0 min-w-[124px]">
+                      <strong className="block text-[14px] tracking-tight text-[#16243a] font-bold">{value}</strong>
+                      <span className="font-mulish text-[8px] font-extrabold uppercase tracking-[.08em] text-[#5f6d74] block mt-0.5">
+                        {label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </motion.div>
 
               {/* Decorative Aircraft Illustration */}
@@ -1707,7 +1737,7 @@ function App() {
 
             <div className="rounded-[25px] bg-white p-5 text-[#101820] shadow-[0_22px_60px_rgba(0,0,0,.18)] sm:p-8">
               {/* Stepped Wizard Indicator */}
-              <div className="mb-8 flex items-center gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Booking flow steps">
+              <div className="mb-6 sm:mb-8 flex items-center gap-2 overflow-x-auto no-scrollbar py-1" role="tablist" aria-label="Booking flow steps">
                 {['Route & cargo', chargeableWeight > 500 ? 'Spot Quote Desk' : 'Compare rates', 'Shipment details', 'Booked'].map((step, index) => {
                   const isClickable = index <= activeStep;
                   return (
@@ -1720,7 +1750,7 @@ function App() {
                           setActiveStep(index);
                         }
                       }}
-                      className={`flex min-w-max items-center gap-2 text-left transition ${
+                      className={`flex min-w-max items-center gap-2 text-left transition min-h-[36px] py-1 px-1 rounded-lg ${
                         isClickable ? 'cursor-pointer hover:opacity-85' : 'cursor-default opacity-50'
                       }`}
                       title={index < activeStep ? `Go back to ${step}` : step}
@@ -1752,13 +1782,10 @@ function App() {
               </div>
 
               {/* STEP 0: ROUTE & CARGO */}
-              <AnimatePresence mode="wait">
+              <>
                 {activeStep === 0 && (
-                  <motion.form
+                  <form
                     key="quote-form"
-                    initial={{ opacity: 0, x: -12 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 12 }}
                     onSubmit={submitQuote}
                   >
                     <div className="grid gap-5 md:grid-cols-2">
@@ -1994,7 +2021,7 @@ function App() {
                         </button>
                       )}
                     </div>
-                  </motion.form>
+                  </form>
                 )}
 
                 {/* STEP 1: COMPARE RATES OR HEAVY CARGO INQUIRY */}
@@ -2029,11 +2056,8 @@ function App() {
                       }}
                     />
                   ) : (
-                    <motion.div
+                    <div
                       key="rates"
-                      initial={{ opacity: 0, x: 12 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 12 }}
                       className="space-y-6"
                     >
                     {/* Search Summary Header Bar */}
@@ -2159,43 +2183,43 @@ function App() {
                                 }`}
                               >
                                 {/* Top Header: Monogram & Airline Name (Left) + Price Hero (Right - Marketer Eyeball Magnet) */}
-                                <div className="flex items-start justify-between gap-4 pb-4 border-b border-[#f0f3f5]">
-                                  <div className="flex items-center gap-3.5 min-w-0">
+                                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4 pb-3.5 border-b border-[#f0f3f5]">
+                                  <div className="flex items-center gap-3 sm:gap-3.5 min-w-0">
                                     <AirlineLogo
                                       carrier={rate.carrier}
                                       carrierCode={rate.carrierCode}
-                                      className="h-12 w-12"
+                                      className="h-10 w-10 sm:h-12 sm:w-12 shrink-0"
                                     />
-                                    <div className="min-w-0">
-                                      <h4 className="font-extrabold text-base text-[#101820] tracking-tight truncate">
+                                    <div className="min-w-0 flex-1">
+                                      <h4 className="font-extrabold text-sm sm:text-base text-[#101820] tracking-tight truncate">
                                         {formatAirlineName(rate.carrier)}
                                       </h4>
-                                      <div className="mt-0.5 flex items-center gap-2 font-mulish text-xs text-[#64748b]">
-                                        <span>Flight <strong className="font-mono font-bold text-[#101820]">{rate.code}</strong></span>
-                                        <span>&middot;</span>
-                                        <span className="text-[#475569] font-medium">{rate.service || 'Scheduled Cargo'}</span>
+                                      <div className="mt-0.5 flex items-center gap-1.5 sm:gap-2 font-mulish text-xs text-[#64748b] flex-wrap">
+                                        <span className="shrink-0">Flight <strong className="font-mono font-bold text-[#101820]">{rate.code}</strong></span>
+                                        <span className="text-[#cbd5e1]">&middot;</span>
+                                        <span className="text-[#475569] font-medium truncate">{rate.service || 'Scheduled Cargo'}</span>
                                       </div>
                                     </div>
                                   </div>
 
                                   {/* Top Right: High-Impact Price Hero */}
-                                  <div className="text-right shrink-0">
+                                  <div className="flex sm:flex-col items-baseline sm:items-end justify-between sm:justify-start pt-2 sm:pt-0 border-t sm:border-0 border-slate-100 sm:text-right shrink-0">
                                     {rate.recommended && (
-                                      <div className="mb-1">
+                                      <div className="sm:mb-1 order-2 sm:order-1">
                                         <span className="inline-flex items-center gap-1 rounded-full bg-[#ecfdf5] px-2.5 py-0.5 font-mulish text-[10px] font-bold text-[#047857] border border-[#a7f3d0] shadow-2xs">
                                           <CheckCircle2 size={11} className="text-[#059669]" />
                                           Lowest Fare
                                         </span>
                                       </div>
                                     )}
-                                    <div className="flex items-baseline justify-end gap-1.5">
-                                      <span className="font-mono text-2xl font-black text-[#101820] tracking-tight">
+                                    <div className="flex items-baseline justify-end gap-1.5 order-1 sm:order-2">
+                                      <span className="font-mono text-xl sm:text-2xl font-black text-[#101820] tracking-tight">
                                         {formatInr(finalPrice)}
                                       </span>
                                       <span className="text-[11px] font-bold text-[#64748b] font-mulish">all-in</span>
                                     </div>
                                     {isContractUser && rate.contractTotal ? (
-                                      <span className="block font-mulish text-[10px] font-bold text-[#16a34a] mt-0.5">
+                                      <span className="block font-mulish text-[10px] font-bold text-[#16a34a] sm:mt-0.5 order-3">
                                         Corporate UID saved {formatInr(rate.total - rate.contractTotal)}
                                       </span>
                                     ) : null}
@@ -2203,45 +2227,45 @@ function App() {
                                 </div>
 
                                 {/* Center: Journey Flow (Google Flights / Flexport inspired) */}
-                                <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-center gap-4 py-4 my-1 border-b border-[#f0f3f5]">
+                                <div className="grid grid-cols-3 sm:grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-4 py-3 sm:py-4 my-1 border-b border-[#f0f3f5]">
                                   {/* Departure */}
                                   <div>
-                                    <div className="text-[10px] font-extrabold text-[#908e92] uppercase tracking-wider font-mulish">Departure</div>
-                                    <div className="mt-0.5 flex items-baseline gap-2">
-                                      <span className="font-mono text-lg sm:text-xl font-black text-[#101820]">{rate.departure.split(' ')[0] || '14:30'}</span>
+                                    <div className="text-[9px] sm:text-[10px] font-extrabold text-[#908e92] uppercase tracking-wider font-mulish">Departure</div>
+                                    <div className="mt-0.5 flex items-baseline gap-1 sm:gap-2">
+                                      <span className="font-mono text-base sm:text-xl font-black text-[#101820]">{rate.departure.split(' ')[0] || '14:30'}</span>
                                       <span className="font-bold text-xs text-[#475569]">{quote.origin || 'BOM'}</span>
                                     </div>
-                                    <div className="text-[11px] text-[#64748b] font-mulish mt-0.5">
-                                      {locations.find((l) => l.code === (quote.origin || 'BOM'))?.city || 'Origin Airport'} ({rate.departure.split(' ')[1] || 'IST'})
+                                    <div className="text-[10px] sm:text-[11px] text-[#64748b] font-mulish mt-0.5 truncate">
+                                      {locations.find((l) => l.code === (quote.origin || 'BOM'))?.city || 'Origin'} ({rate.departure.split(' ')[1] || 'IST'})
                                     </div>
                                   </div>
 
                                   {/* Transit Timeline & Visual Path */}
-                                  <div className="flex flex-col items-center justify-center text-center px-2">
-                                    <span className="font-mulish text-xs font-bold text-[#475569] flex items-center gap-1">
-                                      <Clock3 size={13} className="text-[#187e9c]" />
+                                  <div className="flex flex-col items-center justify-center text-center px-1">
+                                    <span className="font-mulish text-[10px] sm:text-xs font-bold text-[#475569] flex items-center gap-1">
+                                      <Clock3 size={11} className="text-[#187e9c] shrink-0 sm:size-[13px]" />
                                       {rate.transit}
                                     </span>
-                                    <div className="relative flex items-center justify-center w-32 sm:w-40 my-1.5">
+                                    <div className="relative flex items-center justify-center w-full max-w-[85px] sm:max-w-[140px] my-1 sm:my-1.5">
                                       <div className="h-0.5 w-full bg-[#cbd5e1]" />
-                                      <div className="absolute flex h-5 w-5 items-center justify-center rounded-full bg-white border border-[#94a3b8] text-[#187e9c] shadow-2xs">
-                                        <Plane size={11} className="rotate-45" />
+                                      <div className="absolute flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-white border border-[#94a3b8] text-[#187e9c] shadow-2xs">
+                                        <Plane size={9} className="rotate-45 sm:size-[11px]" />
                                       </div>
                                     </div>
-                                    <span className="font-mulish text-[11px] font-bold text-[#187e9c]">
-                                      {rate.direct ? 'Direct Flight' : 'Connecting Route'}
+                                    <span className="font-mulish text-[9px] sm:text-[11px] font-bold text-[#187e9c]">
+                                      {rate.direct ? 'Direct Flight' : 'Connecting'}
                                     </span>
                                   </div>
 
                                   {/* Arrival */}
-                                  <div className="md:text-right">
-                                    <div className="text-[10px] font-extrabold text-[#908e92] uppercase tracking-wider font-mulish">Arrival</div>
-                                    <div className="mt-0.5 flex items-baseline gap-2 md:justify-end">
-                                      <span className="font-mono text-lg sm:text-xl font-black text-[#101820]">{rate.arrival.split(' ')[0] || '18:45'}</span>
+                                  <div className="text-right">
+                                    <div className="text-[9px] sm:text-[10px] font-extrabold text-[#908e92] uppercase tracking-wider font-mulish">Arrival</div>
+                                    <div className="mt-0.5 flex items-baseline justify-end gap-1 sm:gap-2">
+                                      <span className="font-mono text-base sm:text-xl font-black text-[#101820]">{rate.arrival.split(' ')[0] || '18:45'}</span>
                                       <span className="font-bold text-xs text-[#475569]">{quote.destination || 'DXB'}</span>
                                     </div>
-                                    <div className="text-[11px] text-[#64748b] font-mulish mt-0.5">
-                                      {locations.find((l) => l.code === (quote.destination || 'DXB'))?.city || 'Destination Airport'} ({rate.arrival.split(' ')[1] || 'Local'})
+                                    <div className="text-[10px] sm:text-[11px] text-[#64748b] font-mulish mt-0.5 truncate">
+                                      {locations.find((l) => l.code === (quote.destination || 'DXB'))?.city || 'Destination'} ({rate.arrival.split(' ')[1] || 'Local'})
                                     </div>
                                   </div>
                                 </div>
@@ -2298,7 +2322,7 @@ function App() {
                             </div>
                           ) : (
                             <button
-                              onClick={() => setIsUidModalOpen(true)}
+                              onClick={openUidModal}
                               className="focus-ring w-full rounded-xl bg-[#101820] py-2.5 font-mulish text-[11px] font-extrabold text-white transition hover:bg-[#263740]"
                             >
                               Log in with UID
@@ -2318,17 +2342,14 @@ function App() {
                         </div>
                       </div>
                     </div>
-                  </motion.div>
+                  </div>
                 )
               )}
 
                 {/* STEP 2: SHIPMENT DETAILS (GUIDED 3-STEP FLOW) */}
                 {activeStep === 2 && (
-                  <motion.div
+                  <div
                     key="booking"
-                    initial={{ opacity: 0, x: 12 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 12 }}
                     className="space-y-6"
                   >
                     {/* Selected Rate Banner */}
@@ -2356,7 +2377,7 @@ function App() {
                     )}
 
                     {/* Sub-step Stepper */}
-                    <div className="flex items-center gap-2 border-b border-[#e2e5e6] pb-3 text-xs font-mulish overflow-x-auto" role="tablist" aria-label="Booking steps">
+                    <div className="flex items-center gap-2 border-b border-[#e2e5e6] pb-3 text-xs font-mulish overflow-x-auto no-scrollbar py-1" role="tablist" aria-label="Booking steps">
                       {[
                         { step: 0, label: 'Shipper & Consignee' },
                         { step: 1, label: 'Cargo Specs & Packaging' },
@@ -2374,7 +2395,7 @@ function App() {
                               // Allow jumping back to earlier steps or validating forward
                               if (item.step < bookingSubStep) setBookingSubStep(item.step);
                             }}
-                            className={`flex items-center gap-2 rounded-full px-3.5 py-1.5 font-bold transition cursor-pointer text-xs ${
+                            className={`flex shrink-0 items-center gap-2 rounded-full px-3.5 py-2 font-bold transition cursor-pointer text-xs whitespace-nowrap min-h-[38px] ${
                               isActive
                                 ? 'bg-[#187e9c] text-white shadow-xs'
                                 : isCompleted
@@ -2405,7 +2426,7 @@ function App() {
                     {bookingSubStep === 0 && (
                       <div className="grid gap-6 md:grid-cols-2">
                         {/* Shipper */}
-                        <div className="space-y-4 rounded-2xl bg-[#f8fafc] p-5 border border-[#dfe5e7]">
+                        <div className="space-y-4 rounded-2xl bg-[#f8fafc] p-4 sm:p-5 border border-[#dfe5e7]">
                           <div className="font-mulish text-[11px] font-extrabold uppercase text-[#176579] flex items-center gap-2">
                             <Building2 size={15} /> Shipper (India Exporter)
                           </div>
@@ -2415,7 +2436,7 @@ function App() {
                             onChange={(val) => updateBooking('shipperCompany', val)}
                             placeholder="e.g. Acme Industrial Exports Pvt Ltd"
                           />
-                          <div className="grid grid-cols-2 gap-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                             <Field
                               label="Contact Name *"
                               value={booking.shipperName}
@@ -2429,7 +2450,7 @@ function App() {
                               placeholder="27AABCA1234F1Z8"
                             />
                           </div>
-                          <div className="grid grid-cols-2 gap-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                             <Field
                               label="DGFT IEC Number *"
                               value={booking.shipperIec}
@@ -2445,7 +2466,7 @@ function App() {
                               helper="For EDP bank trade credit"
                             />
                           </div>
-                          <div className="grid grid-cols-2 gap-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                             <Field
                               label="Email *"
                               type="email"
@@ -2466,7 +2487,7 @@ function App() {
                         </div>
 
                         {/* Consignee */}
-                        <div className="space-y-4 rounded-2xl bg-[#f8fafc] p-5 border border-[#dfe5e7]">
+                        <div className="space-y-4 rounded-2xl bg-[#f8fafc] p-4 sm:p-5 border border-[#dfe5e7]">
                           <div className="font-mulish text-[11px] font-extrabold uppercase text-[#176579] flex items-center gap-2">
                             <Building2 size={15} /> Consignee (Destination Receiver)
                           </div>
@@ -2476,7 +2497,7 @@ function App() {
                             onChange={(val) => updateBooking('consigneeCompany', val)}
                             placeholder="e.g. Al-Futtaim Logistics LLC"
                           />
-                          <div className="grid grid-cols-2 gap-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                             <Field
                               label="Contact Name *"
                               value={booking.consigneeName}
@@ -2490,7 +2511,7 @@ function App() {
                               placeholder="e.g. 100293847500003"
                             />
                           </div>
-                          <div className="grid grid-cols-2 gap-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                             <Field
                               label="Email *"
                               type="email"
@@ -2518,14 +2539,14 @@ function App() {
                     {/* Sub-Step 1: Cargo Pieces & Dimensions */}
                     {bookingSubStep === 1 && (
                       <div className="space-y-5">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                           <span className="font-mulish text-xs font-extrabold uppercase tracking-wider text-[#64748b]">
                             Piece Dimensions (cm) &amp; Weight (kg)
                           </span>
                           <button
                             type="button"
                             onClick={handleAddPieceLine}
-                            className="font-mulish text-xs font-bold text-[#187e9c] hover:underline flex items-center gap-1"
+                            className="self-start sm:self-auto font-mulish text-xs font-bold text-[#187e9c] hover:underline flex items-center gap-1.5 py-1 px-2.5 rounded-lg hover:bg-[#eaf9fd] transition min-h-[36px]"
                           >
                             <Plus size={14} /> Add Piece Row
                           </button>
@@ -2557,15 +2578,15 @@ function App() {
                               return (
                                 <div
                                   key={line.id}
-                                  className="p-3 rounded-xl border border-[#dfe5e7] bg-[#f8fafc] text-xs font-mulish space-y-2"
+                                  className="p-3 sm:p-4 rounded-xl border border-[#dfe5e7] bg-[#f8fafc] text-xs font-mulish space-y-2"
                                 >
-                                  <div className="grid grid-cols-6 gap-3 items-center">
+                                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5 sm:gap-3 items-center">
                                     <div>
                                       <label className="block text-[10px] text-[#64748b] mb-1 font-bold">Pieces</label>
                                       <input
                                         type="number"
                                         placeholder="1"
-                                        className="booking-input p-2 text-xs"
+                                        className="booking-input p-2 text-xs min-h-[40px]"
                                         value={line.pieces === 0 ? '' : line.pieces}
                                         onChange={(e) => handleUpdatePieceLine(line.id, 'pieces', Math.max(0, Number(e.target.value)))}
                                       />
@@ -2575,7 +2596,7 @@ function App() {
                                       <input
                                         type="number"
                                         placeholder="cm"
-                                        className="booking-input p-2 text-xs"
+                                        className="booking-input p-2 text-xs min-h-[40px]"
                                         value={line.length === 0 ? '' : line.length}
                                         onChange={(e) => handleUpdatePieceLine(line.id, 'length', Math.max(0, Number(e.target.value)))}
                                       />
@@ -2585,7 +2606,7 @@ function App() {
                                       <input
                                         type="number"
                                         placeholder="cm"
-                                        className="booking-input p-2 text-xs"
+                                        className="booking-input p-2 text-xs min-h-[40px]"
                                         value={line.width === 0 ? '' : line.width}
                                         onChange={(e) => handleUpdatePieceLine(line.id, 'width', Math.max(0, Number(e.target.value)))}
                                       />
@@ -2595,7 +2616,7 @@ function App() {
                                       <input
                                         type="number"
                                         placeholder="cm"
-                                        className="booking-input p-2 text-xs"
+                                        className="booking-input p-2 text-xs min-h-[40px]"
                                         value={line.height === 0 ? '' : line.height}
                                         onChange={(e) => handleUpdatePieceLine(line.id, 'height', Math.max(0, Number(e.target.value)))}
                                       />
@@ -2605,16 +2626,16 @@ function App() {
                                       <input
                                         type="number"
                                         placeholder="kg"
-                                        className="booking-input p-2 text-xs"
+                                        className="booking-input p-2 text-xs min-h-[40px]"
                                         value={line.weightPerPiece === 0 ? '' : line.weightPerPiece}
                                         onChange={(e) => handleUpdatePieceLine(line.id, 'weightPerPiece', Math.max(0, Number(e.target.value)))}
                                       />
                                     </div>
-                                    <div className="text-right pt-3">
+                                    <div className="text-right sm:text-center pt-2 sm:pt-3 col-span-2 sm:col-span-1 md:col-span-1">
                                       <button
                                         type="button"
                                         onClick={() => handleRemovePieceLine(line.id)}
-                                        className="text-red-500 hover:text-red-700 p-2 cursor-pointer transition"
+                                        className="text-red-500 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 min-h-[40px] min-w-[40px] inline-flex items-center justify-center cursor-pointer transition"
                                         aria-label="Remove piece row"
                                       >
                                         <Trash2 size={16} />
@@ -2879,15 +2900,13 @@ function App() {
                         </button>
                       )}
                     </div>
-                  </motion.div>
+                  </div>
                 )}
 
                 {/* STEP 3: BOOKED / CONFIRMATION */}
                 {activeStep === 3 && (
-                  <motion.div
+                  <div
                     key="confirmation"
-                    initial={{ opacity: 0, scale: 0.98 }}
-                    animate={{ opacity: 1, scale: 1 }}
                     className="py-8 text-center sm:py-12"
                   >
                     <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#e4f5ef] text-[#176579]">
@@ -2905,12 +2924,12 @@ function App() {
                       <div className="font-mulish text-[10px] font-extrabold uppercase tracking-[.14em] text-[#908e92]">
                         Booking Reference
                       </div>
-                      <div className="mt-2 flex items-center justify-between">
-                        <strong className="text-2xl tracking-[.03em] text-[#101820]">{reference}</strong>
+                      <div className="mt-2 flex items-center justify-between gap-3">
+                        <strong className="text-lg sm:text-2xl font-mono tracking-tight text-[#101820] truncate shrink min-w-0">{reference}</strong>
                         <button
                           type="button"
                           onClick={handleCopyReference}
-                          className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold text-[#64748b] hover:bg-[#e4ebed] hover:text-[#101820] transition cursor-pointer"
+                          className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold text-[#64748b] hover:bg-[#e4ebed] hover:text-[#101820] transition cursor-pointer shrink-0 min-h-[36px]"
                           title="Copy reference"
                         >
                           {copiedReference ? (
@@ -2954,9 +2973,9 @@ function App() {
                         Start another quote
                       </button>
                     </div>
-                  </motion.div>
+                  </div>
                 )}
-              </AnimatePresence>
+              </>
             </div>
           </div>
         </section>
@@ -3310,14 +3329,14 @@ function App() {
                 ) : (
                   <>
                     <button
-                      onClick={() => setIsTrackModalOpen(true)}
+                      onClick={openTrackModal}
                       className="focus-ring rounded-full border border-[#dfe5e7] bg-white px-4 py-2.5 font-mulish text-xs font-extrabold text-[#16243a] transition hover:bg-[#f4f7f8] flex items-center gap-1.5"
                     >
                       <Search size={13} className="text-[#187e9c]" />
                       <span>Quick Track AWB</span>
                     </button>
                     <button
-                      onClick={() => setIsUidModalOpen(true)}
+                      onClick={openUidModal}
                       className="focus-ring rounded-full bg-[#187e9c] px-5 py-2.5 font-mulish text-xs font-extrabold text-white transition hover:bg-[#156b84] flex items-center gap-1.5 shadow-sm"
                     >
                       <LockKeyhole size={13} />
@@ -3577,7 +3596,7 @@ function App() {
 
                       <div className="mt-5 space-y-3">
                         <button
-                          onClick={() => setIsUidModalOpen(true)}
+                          onClick={openUidModal}
                           className="focus-ring w-full flex items-center justify-center gap-2 rounded-xl bg-[#187e9c] px-5 py-3 font-mulish text-xs font-extrabold text-white transition hover:bg-[#156b84] shadow-sm"
                           data-testid="button-console-login"
                         >
@@ -3586,7 +3605,7 @@ function App() {
                         </button>
 
                         <button
-                          onClick={() => setIsTrackModalOpen(true)}
+                          onClick={openTrackModal}
                           className="focus-ring w-full flex items-center justify-center gap-2 rounded-xl border border-[#dfe5e7] bg-white px-5 py-2.5 font-mulish text-xs font-extrabold text-[#16243a] transition hover:bg-[#f4f7f8]"
                           data-testid="button-console-quick-track"
                         >
@@ -3712,7 +3731,7 @@ function App() {
                     </p>
                     <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
                       <button
-                        onClick={() => setIsUidModalOpen(true)}
+                        onClick={openUidModal}
                         className="focus-ring rounded-full bg-[#187e9c] px-6 py-2.5 font-mulish text-xs font-extrabold text-white transition hover:bg-[#156b84] shadow-sm"
                       >
                         Log in with Corporate UID

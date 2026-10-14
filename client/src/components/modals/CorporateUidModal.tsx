@@ -47,16 +47,23 @@ export function CorporateUidModal({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md"
+        >
           <motion.div
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
-            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-[#dfe5e7]"
+            transition={{ duration: 0.15 }}
+            className="w-full max-w-md rounded-2xl bg-white p-6 sm:p-7 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.3)] border border-[#dfe5e7] relative"
           >
-            <div className="flex items-center justify-between border-b border-[#eef2f3] pb-3">
-              <div className="flex items-center gap-2">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#187e9c]/10 text-[#187e9c]">
+            <div className="flex items-center justify-between border-b border-[#eef2f3] pb-3.5">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#187e9c]/10 text-[#187e9c]">
                   <LockKeyhole size={18} />
                 </span>
                 <h3 className="font-extrabold text-base text-[#101820]">Contract Customer Login</h3>
@@ -64,14 +71,14 @@ export function CorporateUidModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="text-[#908e92] hover:text-[#101820] cursor-pointer"
+                className="p-2 -mr-2 text-[#64748b] hover:text-[#101820] hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
                 aria-label="Close modal"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <div className="mt-4 font-mulish text-xs text-[#65686d] leading-relaxed">
+            <div className="mt-4 font-mulish text-xs text-[#556972] leading-relaxed">
               Enter your JetFreight Corporate UID or GSTIN to surface negotiated contractual tariffs and assigned airline allocations.
             </div>
 
@@ -126,13 +133,13 @@ export function CorporateUidModal({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="font-mulish text-xs font-bold text-[#556972] hover:text-[#101820] cursor-pointer"
+                  className="font-mulish min-h-[44px] px-4 py-2 text-xs font-bold text-[#556972] hover:text-[#101820] rounded-xl hover:bg-slate-100 transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-[#187e9c] px-6 py-2.5 font-mulish text-xs font-extrabold text-white transition hover:bg-[#156b84] cursor-pointer"
+                  className="rounded-xl bg-[#187e9c] min-h-[44px] px-6 py-2.5 font-mulish text-xs font-extrabold text-white transition hover:bg-[#156b84] active:scale-[0.98] cursor-pointer shadow-sm"
                   data-testid="button-submit-uid"
                 >
                   Apply Contract Rates
@@ -140,7 +147,7 @@ export function CorporateUidModal({
               </div>
             </form>
           </motion.div>
-        </div>
+        </motion.div>
       )}
     </AnimatePresence>
   );

@@ -434,8 +434,8 @@
 }
 
 @layer base {
-  html { scroll-behavior: smooth; }
-  body { font-family: 'Outfit', sans-serif; background: #f7f9fb; }
+  html { scroll-behavior: smooth; overflow-x: hidden; max-width: 100%; }
+  body { font-family: 'Outfit', sans-serif; background: #f7f9fb; overflow-x: hidden; max-width: 100%; }
   button, input, select { font: inherit; }
   button,
   [role="button"],
@@ -471,7 +471,7 @@
 .atlas-shell { overflow-x: hidden; color: #101820; background: #f8f6f1; }
 .atlas-container { width: min(1180px, calc(100% - 40px)); margin: 0 auto; }
 .atlas-grid { background-image: linear-gradient(to right, rgba(16,33,43,.045) 1px, transparent 1px), linear-gradient(to bottom, rgba(16,33,43,.045) 1px, transparent 1px); background-size: 48px 48px; }
-.hero-wash { min-height: 100svh; background: #aeb0c3; }
+.hero-wash { min-height: 100svh; background: #aeb0c3; overflow-x: hidden; }
 .hairline { border-color: #c7c6c8; }
 .soft-shadow { box-shadow: 0 18px 52px rgba(18, 34, 44, .09), 0 3px 10px rgba(18, 34, 44, .04); }
 .tiny-label { font-family: 'Mulish', sans-serif; font-size: 10px; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; }
@@ -509,7 +509,7 @@ select:focus-visible {
 .select-trigger { cursor: pointer; }
 .select-leading-icon { display: inline-flex; color: #176579; }
 .select-chevron { color: #6f8188; }
-.select-menu { position: absolute; left: 0; right: 0; top: calc(100% + 8px); z-index: 40; overflow: hidden; border: 1px solid #c5d0d2; border-radius: 14px; background: #fff; padding: 6px; box-shadow: 0 18px 38px rgba(16,33,43,.16); transform-origin: top; }
+.select-menu { position: absolute; left: 0; right: 0; top: calc(100% + 8px); z-index: 40; max-height: 280px; overflow-y: auto; overflow-x: hidden; border: 1px solid #c5d0d2; border-radius: 14px; background: #fff; padding: 6px; box-shadow: 0 18px 38px rgba(16,33,43,.16); transform-origin: top; }
 .select-option { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; border-radius: 9px; padding: 11px 10px; color: #30434c; font-family: 'Mulish', sans-serif; font-size: 12px; font-weight: 700; text-align: left; transition: background .16s ease, color .16s ease; }
 .select-option:hover, .select-option.selected { background: #fff4e4; color: #8b5717; }
 .select-option.selected svg { color: #d8891c; }
