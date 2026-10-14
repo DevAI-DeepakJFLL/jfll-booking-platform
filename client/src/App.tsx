@@ -63,6 +63,10 @@ export type QuoteForm = {
   weight: string;
   volume: string;
   cargoType: CargoType;
+  dimensionMode?: 'dimensions' | 'cbm';
+  length?: string;
+  width?: string;
+  height?: string;
 };
 
 export type PieceLine = {
@@ -878,6 +882,10 @@ function App() {
     weight: '',
     volume: '',
     cargoType: '' as CargoType,
+    dimensionMode: 'dimensions',
+    length: '',
+    width: '',
+    height: '',
   });
   const [quoteError, setQuoteError] = useState('');
 
@@ -924,6 +932,38 @@ function App() {
   // Physics calculations (IATA Volumetric standard)
   const actualWeight = Number(quote.weight) || 0;
   const cbmVolWeight = (Number(quote.volume) || 0) * 167;
+
+  // IATA standard volumetric weight from dimensions: (Length × Breadth × Height × Pieces) ÷ 6,000
+  const dimVolWeight = useMemo(() => {
+    const l = Number(quote.length) || 0;
+    const w = Number(quote.width) || 0;
+    const h = Number(quote.height) || 0;
+    const pcs = Math.max(1, Number(quote.pieces) || 1);
+    if (l > 0 && w > 0 && h > 0) {
+      return Math.round(((l * w * h * pcs) / 6000) * 10) / 10;
+    }
+    return 0;
+  }, [quote.length, quote.width, quote.height, quote.pieces]);
+
+  // Derived Volume in CBM: (Length × Breadth × Height × Pieces) ÷ 1,000,000
+  const dimCbm = useMemo(() => {
+    const l = Number(quote.length) || 0;
+    const w = Number(quote.width) || 0;
+    const h = Number(quote.height) || 0;
+    const pcs = Math.max(1, Number(quote.pieces) || 1);
+    if (l > 0 && w > 0 && h > 0) {
+      return Math.round(((l * w * h * pcs) / 1000000) * 1000) / 1000;
+    }
+    return 0;
+  }, [quote.length, quote.width, quote.height, quote.pieces]);
+
+  const activeVolumetricWeight = useMemo(() => {
+    if (quote.dimensionMode === 'cbm') {
+      return cbmVolWeight;
+    }
+    return dimVolWeight > 0 ? dimVolWeight : cbmVolWeight;
+  }, [quote.dimensionMode, dimVolWeight, cbmVolWeight]);
+
   const totalVolumetricWeightFromLines = useMemo(() => {
     return Math.round(
       pieceLines.reduce((acc, p) => {
@@ -933,7 +973,7 @@ function App() {
     ) / 10;
   }, [pieceLines]);
 
-  const volumetricWeight = Math.round(Math.max(totalVolumetricWeightFromLines, cbmVolWeight) * 10) / 10;
+  const volumetricWeight = Math.round(Math.max(totalVolumetricWeightFromLines, activeVolumetricWeight) * 10) / 10;
   // IATA TACT Rule 1.3.2: Round chargeable weight up to nearest 0.5 kg
   const chargeableWeight = Math.ceil(Math.max(actualWeight, volumetricWeight) * 2) / 2;
 
@@ -1046,7 +1086,19 @@ function App() {
   };
 
   const updateQuote = (key: keyof QuoteForm, value: string) =>
-    setQuote((current) => ({ ...current, [key]: key === 'origin' ? 'BOM' : value }));
+    setQuote((current) => {
+      const next = { ...current, [key]: key === 'origin' ? 'BOM' : value };
+      if (key === 'length' || key === 'width' || key === 'height' || key === 'pieces') {
+        const l = Number(key === 'length' ? value : next.length) || 0;
+        const w = Number(key === 'width' ? value : next.width) || 0;
+        const h = Number(key === 'height' ? value : next.height) || 0;
+        const pcs = Math.max(1, Number(key === 'pieces' ? value : next.pieces) || 1);
+        if (l > 0 && w > 0 && h > 0 && next.dimensionMode !== 'cbm') {
+          next.volume = ((l * w * h * pcs) / 1000000).toFixed(3);
+        }
+      }
+      return next;
+    });
 
   const updateBooking = (key: keyof BookingForm, value: any) =>
     setBooking((current) => ({ ...current, [key]: value }));
@@ -1118,6 +1170,19 @@ function App() {
     setSelectedRate(rate);
     setActiveStep(2);
     setBookingSubStep(0);
+    // Pre-populate pieceLines from Step 0 dimensions if user hasn't added custom lines yet
+    if (pieceLines.length === 0 && Number(quote.length) > 0 && Number(quote.width) > 0 && Number(quote.height) > 0) {
+      setPieceLines([
+        {
+          id: `p-init-1`,
+          pieces: Number(quote.pieces) || 1,
+          length: Number(quote.length) || 0,
+          width: Number(quote.width) || 0,
+          height: Number(quote.height) || 0,
+          weightPerPiece: Math.round(((Number(quote.weight) || 0) / (Number(quote.pieces) || 1)) * 10) / 10,
+        },
+      ]);
+    }
     window.setTimeout(() => scrollToQuote(), 50);
   };
 
@@ -1743,58 +1808,157 @@ function App() {
                         options={cargoCategoryOptions}
                       />
 
-                      <Field
-                        label="Pieces"
-                        type="number"
-                        value={quote.pieces}
-                        onChange={(val) => updateQuote('pieces', val)}
-                        placeholder="e.g. 4"
-                      />
-
                       <div className="grid grid-cols-2 gap-3">
+                        <Field
+                          label="Pieces"
+                          type="number"
+                          value={quote.pieces}
+                          onChange={(val) => updateQuote('pieces', val)}
+                          placeholder="e.g. 4"
+                        />
                         <Field
                           label="Gross weight (kg)"
                           type="number"
                           value={quote.weight}
                           onChange={(val) => updateQuote('weight', val)}
                           placeholder="e.g. 240"
+                          helper="Actual scale weight including packaging"
                         />
-                        <Field
-                          label="Volume (CBM)"
-                          type="number"
-                          value={quote.volume}
-                          onChange={(val) => updateQuote('volume', val)}
-                          placeholder="e.g. 1.2"
-                        />
+                      </div>
+
+                      {/* Cargo Sizing & Volumetric Weight Options */}
+                      <div className="rounded-xl border border-[#dfe5e7] bg-[#f8fbfa] p-3.5 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="font-mulish text-[11px] font-extrabold uppercase tracking-[.08em] text-[#555c61] flex items-center gap-1.5">
+                            <Boxes size={14} className="text-[#176579]" /> Cargo Dimensions &amp; Volumetric Weight
+                          </span>
+                          <div className="inline-flex rounded-lg bg-[#e8eef0] p-0.5 text-xs font-mulish">
+                            <button
+                              type="button"
+                              onClick={() => updateQuote('dimensionMode', 'dimensions')}
+                              className={`rounded-md px-2.5 py-1 text-[11px] font-bold transition cursor-pointer ${
+                                quote.dimensionMode !== 'cbm'
+                                  ? 'bg-white text-[#176579] shadow-sm'
+                                  : 'text-[#64748b] hover:text-[#101820]'
+                              }`}
+                            >
+                              Dimensions (cm)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => updateQuote('dimensionMode', 'cbm')}
+                              className={`rounded-md px-2.5 py-1 text-[11px] font-bold transition cursor-pointer ${
+                                quote.dimensionMode === 'cbm'
+                                  ? 'bg-white text-[#176579] shadow-sm'
+                                  : 'text-[#64748b] hover:text-[#101820]'
+                              }`}
+                            >
+                              Direct CBM
+                            </button>
+                          </div>
+                        </div>
+
+                        {quote.dimensionMode !== 'cbm' ? (
+                          <div className="space-y-2">
+                            <div className="grid grid-cols-3 gap-2.5">
+                              <Field
+                                label="Length (cm)"
+                                type="number"
+                                value={quote.length || ''}
+                                onChange={(val) => updateQuote('length', val)}
+                                placeholder="e.g. 60"
+                              />
+                              <Field
+                                label="Breadth (cm)"
+                                type="number"
+                                value={quote.width || ''}
+                                onChange={(val) => updateQuote('width', val)}
+                                placeholder="e.g. 50"
+                              />
+                              <Field
+                                label="Height (cm)"
+                                type="number"
+                                value={quote.height || ''}
+                                onChange={(val) => updateQuote('height', val)}
+                                placeholder="e.g. 40"
+                              />
+                            </div>
+                            <div className="flex items-center justify-between rounded-lg bg-[#edf6f8] px-3 py-1.5 text-[11px] font-mulish text-[#475569]">
+                              <span className="text-[#64748b]">
+                                IATA Standard: (L × B × H × Pieces) ÷ 6,000
+                              </span>
+                              {dimVolWeight > 0 ? (
+                                <span className="font-extrabold text-[#176579]">
+                                  = {dimVolWeight} kg vol. ({dimCbm} CBM)
+                                </span>
+                              ) : (
+                                <span className="text-[#94a3b8] italic">Enter box dimensions in cm</span>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <Field
+                            label="Total Volume (CBM)"
+                            type="number"
+                            value={quote.volume}
+                            onChange={(val) => updateQuote('volume', val)}
+                            placeholder="e.g. 1.2"
+                            helper="1 CBM = 167 kg volumetric weight (IATA air cargo ratio)"
+                          />
+                        )}
                       </div>
                     </div>
 
                     {/* Volumetric Weight Check Banner */}
                     {chargeableWeight > 0 ? (
-                      <div className="mt-5 flex items-center justify-between rounded-xl bg-[#f4f7f8] p-4 text-xs font-mulish border border-[#dfe5e7]">
-                        <div>
+                      <div className="mt-5 rounded-xl bg-[#f4f7f8] p-4 text-xs font-mulish border border-[#dfe5e7] space-y-2.5">
+                        <div className="flex items-center justify-between">
                           <span className="font-extrabold text-[#176579] uppercase text-[10px] tracking-wider block">
-                            Chargeable Weight Verification
+                            IATA Chargeable Weight Verification
                           </span>
-                          <div className="mt-0.5 text-[#101820]">
-                            Gross: <strong>{actualWeight} kg</strong> &middot; Volumetric (1:167):{' '}
-                            <strong>{volumetricWeight} kg</strong>
-                          </div>
-                          <span className="text-[11px] text-[#65686d]">
-                            Billing weight applied: <strong className="text-[#187e9c]">{chargeableWeight} kg</strong>
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-extrabold ${
+                              volumetricWeight > actualWeight
+                                ? 'bg-[#fff3dc] text-[#a46600]'
+                                : 'bg-[#e6f4ea] text-[#137333]'
+                            }`}
+                          >
+                            {volumetricWeight > actualWeight
+                              ? 'Billed on Volumetric Weight (Bulky Cargo)'
+                              : 'Billed on Gross Weight (Dense Cargo)'}
                           </span>
-                          {chargeableWeight > 500 && (
-                            <div className="mt-2.5 flex items-center gap-1.5 rounded-lg border border-[#c2e2e8] bg-[#eef8fa] px-3 py-1.5 font-mulish text-xs font-bold text-[#176579]">
-                              <span className="h-2 w-2 rounded-full bg-[#187e9c] animate-pulse"></span>
-                              <span>Heavy Shipment (&gt; 500 kg): Custom Spot Allocation by Pricing Desk</span>
-                            </div>
-                          )}
                         </div>
-                        <Info size={18} className="text-[#187e9c]" />
+
+                        <div className="grid grid-cols-2 gap-2 text-[#101820] bg-white rounded-lg p-2.5 border border-[#e2e8f0]">
+                          <div>
+                            <span className="text-[10px] text-[#64748b] block font-bold">Gross Scale Weight</span>
+                            <span className="text-sm font-extrabold text-[#101820]">{actualWeight} kg</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-[#64748b] block font-bold">Volumetric Weight (÷6000)</span>
+                            <span className="text-sm font-extrabold text-[#101820]">{volumetricWeight} kg</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-[11px] text-[#556972]">
+                            Applicable Billing Weight (Higher of the two, rounded to 0.5 kg):
+                          </span>
+                          <span className="text-base font-black text-[#187e9c]">
+                            {chargeableWeight} kg
+                          </span>
+                        </div>
+
+                        {chargeableWeight > 500 && (
+                          <div className="flex items-center gap-1.5 rounded-lg border border-[#c2e2e8] bg-[#eef8fa] px-3 py-1.5 font-mulish text-xs font-bold text-[#176579]">
+                            <span className="h-2 w-2 rounded-full bg-[#187e9c] animate-pulse"></span>
+                            <span>Heavy Shipment (&gt; 500 kg): Custom Spot Allocation by Pricing Desk</span>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="mt-5 flex items-center justify-between rounded-xl bg-[#f8fbfa] p-3 text-xs font-mulish border border-dashed border-[#dfe5e7] text-[#64748b]">
-                        <span>Enter pieces and gross weight above to preview live airline tariff rates.</span>
+                        <span>Enter pieces, gross weight, and dimensions above to preview live airline tariff rates.</span>
                         <Info size={16} className="text-[#908e92]" />
                       </div>
                     )}
@@ -1854,6 +2018,10 @@ function App() {
                           weight: '',
                           volume: '',
                           cargoType: '' as CargoType,
+                          dimensionMode: 'dimensions',
+                          length: '',
+                          width: '',
+                          height: '',
                         });
                         setPieceLines([]);
                         setActiveStep(0);
