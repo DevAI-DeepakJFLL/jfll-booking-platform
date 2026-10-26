@@ -585,8 +585,8 @@ function App() {
       list.sort((a, b) => parseDepartureMinutes(a.departure) - parseDepartureMinutes(b.departure));
     } else if (rateFilter === 'cheapest') {
       list.sort((a, b) => {
-        const pA = isContractUser && a.contractTotal ? a.contractTotal : a.total;
-        const pB = isContractUser && b.contractTotal ? b.contractTotal : b.total;
+        const pA = a.total;
+        const pB = b.total;
         return sortAsc ? pA - pB : pB - pA;
       });
     } else if (rateFilter === 'fastest') {
@@ -597,14 +597,10 @@ function App() {
       });
     } else if (rateFilter === 'direct') {
       list = list.filter((r) => r.direct);
-      list.sort((a, b) => {
-        const pA = isContractUser && a.contractTotal ? a.contractTotal : a.total;
-        const pB = isContractUser && b.contractTotal ? b.contractTotal : b.total;
-        return pA - pB;
-      });
+      list.sort((a, b) => a.total - b.total);
     }
     return list;
-  }, [dynamicRates, rateFilter, sortAsc, isContractUser]);
+  }, [dynamicRates, rateFilter, sortAsc]);
 
   const directCount = useMemo(() => dynamicRates.filter((r) => r.direct).length, [dynamicRates]);
 
@@ -794,7 +790,7 @@ function App() {
     const newRef = `JFLL-AE-2026-${randomSuffix}`;
     setReference(newRef);
 
-    const price = isContractUser && selectedRate.contractTotal ? selectedRate.contractTotal : selectedRate.total;
+    const price = selectedRate.total;
     const finalAmount = booking.doorPickup ? price + 2400 : price;
 
     const newShipment: ShipmentRecord = {
@@ -1554,7 +1550,7 @@ function App() {
                             <strong className="text-sm text-[#101820]">Have you previously worked with JFLL?</strong>
                           </div>
                           <span className="text-[#65686d] text-[11px] block mt-0.5">
-                            Existing clients and corporate partners receive pre-negotiated volume tariff allotments.
+                            Link your existing JFLL account for priority booking processing and assigned operations desk support.
                           </span>
                         </div>
                         <div className="inline-flex rounded-xl bg-[#e8eef0] p-1 text-xs shrink-0 self-start sm:self-auto">
@@ -1610,12 +1606,12 @@ function App() {
                               }
                             }}
                             placeholder="e.g. JFLL-MUM-8921 or Reliance Retail Ltd"
-                            helper="Enter your JFLL partner ID, account number, or registered company name to unlock contracted rates."
+                            helper="Enter your JFLL partner ID, account number, or registered company name for assigned account handling."
                           />
                           {jfllIdentifier.trim() && (
                             <div className="mt-2.5 flex items-center gap-1.5 text-[11px] font-bold text-[#176579]">
                               <CheckCircle2 size={13} className="text-[#187e9c]" />
-                              <span>JFLL Partner identified ({jfllIdentifier.trim()}) &bull; Negotiated contract tariffs will be applied</span>
+                              <span>JFLL Partner identified ({jfllIdentifier.trim()}) &bull; Priority desk routing enabled</span>
                             </div>
                           )}
                         </div>
@@ -1801,7 +1797,7 @@ function App() {
                           </div>
                         ) : (
                           filteredRates.map((rate) => {
-                            const finalPrice = isContractUser && rate.contractTotal ? rate.contractTotal : rate.total;
+                            const finalPrice = rate.total;
                             const isSelected = selectedRate?.id === rate.id;
 
                             return (
@@ -1850,11 +1846,6 @@ function App() {
                                       </span>
                                       <span className="text-[11px] font-bold text-[#64748b] font-mulish">all-in</span>
                                     </div>
-                                    {isContractUser && rate.contractTotal ? (
-                                      <span className="block font-mulish text-[10px] font-bold text-[#16a34a] sm:mt-0.5 order-3">
-                                        Corporate UID saved {formatInr(rate.total - rate.contractTotal)}
-                                      </span>
-                                    ) : null}
                                   </div>
                                 </div>
 
@@ -1929,50 +1920,15 @@ function App() {
 
                       {/* Right: Sidebars */}
                       <div className="space-y-4">
-                        {/* JFLL Partner Tariffs Card */}
+                        {/* Direct Airline Space Guarantee Card */}
                         <div className="rounded-2xl border border-[#dfe5e7] bg-[#f8fafc] p-5 font-mulish text-xs">
                           <div className="flex items-center gap-2 mb-2">
-                            <Building2 size={16} className="text-[#187e9c]" />
-                            <strong className="text-sm text-[#101820]">
-                              {isContractUser ? 'JFLL Partner Tariffs Applied' : 'Worked with JFLL before?'}
-                            </strong>
+                            <Plane size={16} className="text-[#187e9c]" />
+                            <strong className="text-sm text-[#101820]">Confirmed Airline Allocations</strong>
                           </div>
-
-                          {isContractUser ? (
-                            <div className="space-y-2.5">
-                              <p className="text-[#556972] leading-relaxed">
-                                Negotiated corporate rates unlocked for <strong>{contractCompanyName}</strong>.
-                              </p>
-                              <div className="rounded-xl bg-[#eef8f5] p-3 border border-[#d4e9e3] text-[#176579] font-bold">
-                                <div className="text-xs">{contractCompanyName}</div>
-                                <div className="text-[10px] text-[#65686d]">Partner ID / Name: {jfllIdentifier}</div>
-                              </div>
-                              <button
-                                onClick={clearJfllPartner}
-                                className="w-full rounded-xl border border-[#dfe5e7] py-2 text-[#64748b] hover:text-[#b44f47] text-[11px] font-bold bg-white transition cursor-pointer"
-                              >
-                                Switch to Standard Rates
-                              </button>
-                            </div>
-                          ) : (
-                            <div>
-                              <p className="text-[#65686d] leading-relaxed mb-3">
-                                Existing partners and contract customers receive pre-negotiated volume allotments on all active corridors.
-                              </p>
-                              <button
-                                onClick={() => {
-                                  setActiveStep(0);
-                                  setHasWorkedWithJfll(true);
-                                  updateQuote('hasWorkedWithJfll', true);
-                                  updateQuote('hasWorkedWithJfl', true);
-                                  scrollToQuote();
-                                }}
-                                className="focus-ring w-full rounded-xl border border-[#187e9c] text-[#187e9c] bg-white py-2 font-mulish text-[11px] font-extrabold hover:bg-[#edf6f8] transition cursor-pointer"
-                              >
-                                Add JFLL Member ID / Company
-                              </button>
-                            </div>
-                          )}
+                          <p className="text-[#65686d] leading-relaxed">
+                            Published scheduled flight tariffs with confirmed space allocations across widebody passenger and freighter flights from {quote.origin || 'BOM'} to {quote.destination || 'DXB'}.
+                          </p>
                         </div>
 
                         {/* All-in Rates Guarantee Card */}
@@ -2016,7 +1972,7 @@ function App() {
                           </div>
                         </div>
                         <span className="text-sm font-extrabold text-[#176579] shrink-0">
-                          {formatInr(isContractUser && selectedRate.contractTotal ? selectedRate.contractTotal : selectedRate.total)} total
+                          {formatInr(selectedRate.total)} total
                         </span>
                       </div>
                     )}
@@ -2442,7 +2398,7 @@ function App() {
                             <div className="rounded-2xl border border-[#dfe5e7] bg-[#f8fafc] p-4 text-xs font-mulish space-y-2">
                               <strong className="block text-sm text-[#101820]">Charges Summary</strong>
                               {(() => {
-                                const freightPrice = isContractUser && selectedRate.contractTotal ? selectedRate.contractTotal : selectedRate.total;
+                                const freightPrice = selectedRate.total;
                                 const total = booking.doorPickup ? freightPrice + 2400 : freightPrice;
                                 return (
                                   <div className="space-y-1.5">
@@ -2800,12 +2756,12 @@ function App() {
                     Configure shipment specs in under 60 seconds
                   </h3>
                   <p className="mt-2 text-sm leading-6 text-[#65686d]">
-                    Tell us origin and destination hubs, ready date, piece dimensions, and cargo type. Our engine automatically computes gross vs. volumetric chargeable weight using the IATA standard 1:6 ratio, applying enterprise tariffs for Corporate UID holders.
+                    Tell us origin and destination hubs, ready date, piece dimensions, and cargo type. Our engine automatically computes gross vs. volumetric chargeable weight using the IATA standard 1:6 ratio, with direct carrier allocations across active trade lanes.
                   </p>
 
                   <div className="mt-4 flex flex-wrap gap-2 font-mulish text-[11px] font-bold text-[#556972]">
                     <span className="rounded-lg bg-[#f4f7f8] px-2.5 py-1 border border-[#dfe5e7]">IATA 1:6 Volumetric Ratio</span>
-                    <span className="rounded-lg bg-[#f4f7f8] px-2.5 py-1 border border-[#dfe5e7]">Corporate UID Tariff Matching</span>
+                    <span className="rounded-lg bg-[#f4f7f8] px-2.5 py-1 border border-[#dfe5e7]">IATA Tariff Matching</span>
                     <span className="rounded-lg bg-[#f4f7f8] px-2.5 py-1 border border-[#dfe5e7]">Pharma, DGR &amp; Perishables</span>
                   </div>
 
