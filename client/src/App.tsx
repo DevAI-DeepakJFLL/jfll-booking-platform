@@ -1324,12 +1324,12 @@ function App() {
                         <label className="font-mulish block text-[11px] font-extrabold uppercase tracking-[.08em] text-[#4d5b62] mb-2">
                           Origin gateway (India) *
                         </label>
-                        <div className="booking-input select-trigger flex items-center justify-between bg-[#f8fafc] text-xs font-semibold text-[#101820] border-[#dfe5e7] cursor-default">
+                        <div className="booking-input select-trigger flex items-center justify-between bg-[#f8fafc] text-xs font-semibold text-[#101820] border-[#dfe5e7] cursor-default min-h-[44px]">
                           <div className="flex items-center gap-2.5 min-w-0">
                             <MapPin size={16} className="text-[#187e9c] shrink-0" />
                             <span className="truncate">Mumbai (BOM) &middot; Chhatrapati Shivaji Maharaj Intl</span>
                           </div>
-                          <span className="shrink-0 rounded-full bg-[#187e9c]/10 px-2.5 py-0.5 text-[10px] font-bold text-[#187e9c]">
+                          <span className="shrink-0 h-5 inline-flex items-center rounded-full bg-[#187e9c]/10 px-2 text-[10px] font-bold text-[#187e9c]">
                             Fixed Gateway
                           </span>
                         </div>

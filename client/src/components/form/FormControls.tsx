@@ -35,7 +35,7 @@ export function Field({
       </span>
       <input
         data-testid={`input-${label.toLowerCase().replaceAll(' ', '-')}`}
-        className={`booking-input min-h-[44px] ${invalid ? 'invalid' : ''}`}
+        className={`booking-input text-xs font-semibold text-[#101820] min-h-[44px] ${invalid ? 'invalid' : ''}`}
         type={type}
         value={value}
         placeholder={placeholder}
@@ -104,14 +104,14 @@ export function StyledSelect({
         id={id}
         type="button"
         onClick={() => setOpen((current) => !current)}
-        className="booking-input select-trigger flex items-center gap-3 text-left w-full cursor-pointer"
+        className="booking-input select-trigger flex items-center gap-2.5 text-left w-full cursor-pointer min-h-[44px]"
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        {icon ? <span className="select-icon shrink-0">{icon}</span> : null}
+        {icon ? <span className="select-icon shrink-0 text-[#187e9c]">{icon}</span> : null}
         <span
-          className={`min-w-0 flex-1 truncate ${
-            !selected ? 'text-[#908e92]' : 'font-semibold text-[#101820]'
+          className={`min-w-0 flex-1 truncate text-xs ${
+            !selected ? 'text-[#908e92] font-normal' : 'font-semibold text-[#101820]'
           }`}
         >
           {selected?.label || placeholder || 'Select an option'}
@@ -304,14 +304,14 @@ export function CustomDatePicker({
         id={id}
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="booking-input select-trigger flex items-center gap-3 text-left w-full cursor-pointer"
+        className="booking-input select-trigger flex items-center gap-2.5 text-left w-full cursor-pointer min-h-[44px]"
         aria-haspopup="dialog"
         aria-expanded={open}
       >
         <Calendar size={16} className="text-[#187e9c] shrink-0" />
         <span
-          className={`min-w-0 flex-1 truncate ${
-            !value ? 'text-[#908e92]' : 'font-semibold text-[#101820]'
+          className={`min-w-0 flex-1 truncate text-xs ${
+            !value ? 'text-[#908e92] font-normal' : 'font-semibold text-[#101820]'
           }`}
         >
           {formattedDisplay || placeholder}
