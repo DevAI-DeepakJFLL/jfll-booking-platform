@@ -22,6 +22,8 @@ overrides:
 
 importers:
 
+  .: {}
+
   client:
     dependencies:
       clsx:
