@@ -4,17 +4,40 @@
  * Formatted in a simple, clean, text-based format without heavy colors or UI templates.
  */
 
-import nodemailer from 'nodemailer';
-
 let cachedAccessToken = null;
 let tokenExpiresAt = 0;
 
-// Internal stream transporter to compile 100% compliant RFC 2822 MIME messages for Outlook & Gmail
-const streamTransporter = nodemailer.createTransport({
-  streamTransport: true,
-  buffer: true,
-  newline: 'windows',
-});
+/**
+ * Compiles a 100% compliant RFC 2822 multipart/alternative MIME message buffer
+ * without external dependencies. Renders cleanly across Outlook and Gmail.
+ */
+function buildMimeMessage({ from, to, replyTo, subject, text, html }) {
+  const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+  const lines = [
+    `From: ${from}`,
+    `To: ${to}`,
+    `Reply-To: ${replyTo || from}`,
+    `Subject: =?UTF-8?B?${Buffer.from(subject || '').toString('base64')}?=`,
+    'MIME-Version: 1.0',
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    '',
+    `--${boundary}`,
+    'Content-Type: text/plain; charset=UTF-8',
+    'Content-Transfer-Encoding: 7bit',
+    '',
+    text || '',
+    '',
+    `--${boundary}`,
+    'Content-Type: text/html; charset=UTF-8',
+    'Content-Transfer-Encoding: 7bit',
+    '',
+    html || '',
+    '',
+    `--${boundary}--`,
+    '',
+  ];
+  return Buffer.from(lines.join('\r\n'), 'utf-8');
+}
 
 /**
  * Obtains an active OAuth2 access token, reusing cached token if still valid.
@@ -70,7 +93,7 @@ async function sendViaGmailApi({ from, to, replyTo, subject, html, text }) {
   }
 
   // Compile standard RFC 2822 MIME payload
-  const info = await streamTransporter.sendMail({
+  const mimeBuffer = buildMimeMessage({
     from,
     to,
     replyTo: replyTo || from,
@@ -80,7 +103,7 @@ async function sendViaGmailApi({ from, to, replyTo, subject, html, text }) {
   });
 
   // Base64URL encode the raw RFC 2822 message buffer for Gmail API
-  const base64UrlMessage = info.message
+  const base64UrlMessage = mimeBuffer
     .toString('base64')
     .replace(/\+/g, '-')
     .replace(/\//g, '_')

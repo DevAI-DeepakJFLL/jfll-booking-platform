@@ -48,21 +48,10 @@ jobs:
           aws configure set default.region "$REGION"
           echo "AWS credentials configured successfully for region $REGION."
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 11
-
       - name: Package Backend Code
         run: |
           cd server
-          pnpm install --prod --no-frozen-lockfile
-          zip -r ../lambda-bundle.zip lambda.mjs lib/ data/CONSOLIDATED_AIR_FREIGHT_RATES.csv package.json node_modules/
+          zip -r ../lambda-bundle.zip lambda.mjs lib data/CONSOLIDATED_AIR_FREIGHT_RATES.csv package.json
           cd ..
 
       - name: Update Lambda Function Code
@@ -76,7 +65,6 @@ jobs:
   # =========================================================================
   deploy-frontend:
     name: Build & Deploy Frontend to S3 + CloudFront
-    needs: deploy-backend
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -126,7 +114,10 @@ jobs:
 
       - name: Sync Static Assets to S3
         run: |
-          aws s3 sync client/out s3://${{ vars.AWS_S3_BUCKET_NAME }} --delete
+          # Sync immutable hashed JS/CSS assets
+          aws s3 sync client/out s3://${{ vars.AWS_S3_BUCKET_NAME }} --delete --exclude "*.html" --cache-control "public, max-age=31536000, immutable"
+          # Sync HTML and root documents with no-cache so updates are immediately visible
+          aws s3 sync client/out s3://${{ vars.AWS_S3_BUCKET_NAME }} --delete --include "*.html" --cache-control "no-cache, no-store, must-revalidate"
 
       - name: Invalidate CloudFront CDN Cache
         run: |
@@ -134,6 +125,9 @@ jobs:
             aws cloudfront create-invalidation \
               --distribution-id "${{ vars.AWS_CLOUDFRONT_DISTRIBUTION_ID }}" \
               --paths "/*"
+          else
+            echo "AWS_CLOUDFRONT_DISTRIBUTION_ID is not configured, skipping cache invalidation."
+          fi
           else
             echo "AWS_CLOUDFRONT_DISTRIBUTION_ID is not configured, skipping cache invalidation."
           fi

@@ -75,10 +75,6 @@ importers:
         version: 5.8.2
 
   server:
-    dependencies:
-      nodemailer:
-        specifier: ^10.2.1
-        version: 10.2.1
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -902,10 +898,6 @@ packages:
     resolution: {integrity: sha512-OmO8+GM1JUZqXET720VrJCwkjUCXmCMQm0Z3UDDRbfNLHS4NEAvY60j5jiFv0tkKw2PNNlqOLhahVmwJIOLDIQ==}
     engines: {node: '>=18'}
 
-  nodemailer@10.2.1:
-    resolution: {integrity: sha512-ZrDNsPFoDMwefNs7sJwrYiEJ/CG4ClJWDZv05iNJsEBWa8GRDry1QJHTJxsuTAY9eDDKjX4k+q3SxslXJOao7w==}
-    engines: {node: '>=20.0.0'}
-
   picocolors@1.1.1:
     resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
 
@@ -1656,8 +1648,6 @@ snapshots:
 
   node-releases@2.0.60:
     optional: true
-
-  nodemailer@10.2.1: {}
 
   picocolors@1.1.1: {}
 
