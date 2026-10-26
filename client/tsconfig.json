@@ -37,10 +37,5 @@
     "allowJs": true,
     "strict": false,
     "esModuleInterop": true
-  },
-  "references": [
-    {
-      "path": "../server/lib/api-client-react"
-    }
-  ]
+  }
 }

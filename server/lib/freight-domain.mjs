@@ -177,3 +177,210 @@ export function getFlightSchedule(carrierCode, origin, destination, idx = 0) {
     };
   }
 }
+
+/**
+ * Converts linear dimensions from supported unit to centimeters (cm).
+ */
+export function convertToCm(value, unit = 'cm') {
+  if (!value || isNaN(value) || value <= 0) return 0;
+  switch (unit) {
+    case 'in':
+      return value * 2.54;
+    case 'm':
+      return value * 100;
+    case 'mm':
+      return value / 10;
+    case 'cm':
+    default:
+      return Number(value);
+  }
+}
+
+/**
+ * Calculates volumetric weight in kg according to IATA standard divisor (6,000 cm³/kg).
+ */
+export function calculateVolumetricWeight(length, width, height, pieces = 1, unit = 'cm') {
+  const l = convertToCm(length, unit);
+  const w = convertToCm(width, unit);
+  const h = convertToCm(height, unit);
+  const pcs = Math.max(1, pieces || 1);
+  if (l > 0 && w > 0 && h > 0) {
+    return Math.round(((l * w * h * pcs) / 6000) * 10) / 10;
+  }
+  return 0;
+}
+
+/**
+ * Calculates volume in CBM (m³) from dimensions.
+ */
+export function calculateCbm(length, width, height, pieces = 1, unit = 'cm') {
+  const l = convertToCm(length, unit);
+  const w = convertToCm(width, unit);
+  const h = convertToCm(height, unit);
+  const pcs = Math.max(1, pieces || 1);
+  if (l > 0 && w > 0 && h > 0) {
+    return Math.round(((l * w * h * pcs) / 1000000) * 1000) / 1000;
+  }
+  return 0;
+}
+
+/**
+ * Calculates live freight quotes against the tariff dataset (IATA TACT rules, weight tiers, surcharges).
+ */
+export function calculateQuote({ origin, destination, actualWeight, volumetricWeight, cargoType, rates = [] }) {
+  const rawWeight = Math.max(actualWeight, volumetricWeight);
+  // IATA TACT Rule 1.3.2: Chargeable weight rounded up to nearest 0.5 kg
+  const chargeableWeight = Math.ceil(rawWeight * 2) / 2;
+  if (!origin || !destination || chargeableWeight <= 0) {
+    return { chargeableWeight: 0, rates: [] };
+  }
+
+  // 1. Direct matches in consolidated rates with cargo category filter
+  let matched = rates.filter((r) =>
+    (!origin || r.origin?.toUpperCase() === origin.toUpperCase()) &&
+    (!destination || r.destination?.toUpperCase() === destination.toUpperCase()) &&
+    (!cargoType || r.cargo_category?.toLowerCase() === cargoType.toLowerCase())
+  );
+
+  // Fallback to route if specific cargo category doesn't have custom tariff
+  let isCategoryFallback = false;
+  if (matched.length === 0) {
+    isCategoryFallback = true;
+    matched = rates.filter((r) =>
+      (!origin || r.origin?.toUpperCase() === origin.toUpperCase()) &&
+      (!destination || r.destination?.toUpperCase() === destination.toUpperCase())
+    );
+  }
+
+  // Fallback for inquiry hubs connecting from BOM
+  let isConnecting = false;
+  if (matched.length === 0 && origin?.toUpperCase() === 'BOM') {
+    isConnecting = true;
+    matched = rates.filter((r) => r.origin === 'BOM' && r.destination === 'DXB');
+  }
+
+  const calculated = matched.map((r, idx) => {
+    // IATA TACT Rule 2.2: Commodity Classification Rates (CCR) & Statutory Surcharges
+    let classMultiplier = 1.0;
+    let commodityFee = 0;
+    const normCat = (cargoType || r.cargo_category || '').toLowerCase();
+
+    if (normCat.includes('dangerous') || normCat.includes('dgr')) {
+      commodityFee = 3500; // Statutory MIAL/IGI DGR Acceptance & DG Checklist Inspection fee
+      if (isCategoryFallback) classMultiplier = 1.25; // Standard IATA Class Rate markup for DGR
+    } else if (normCat.includes('pharma') || normCat.includes('perishable')) {
+      commodityFee = Math.round(Math.max(chargeableWeight * 2.5, 1500)); // Active cold-room / cool-chain handling
+      if (isCategoryFallback) classMultiplier = 1.15; // IATA Class Rate markup for Temperature-Controlled
+    } else if (normCat.includes('express')) {
+      if (isCategoryFallback) classMultiplier = 1.30; // Priority uplift multiplier
+    }
+
+    const multiplier = (isConnecting ? 1.35 : 1.0) * classMultiplier;
+    const cw = chargeableWeight;
+
+    // 1. Build sorted active weight tiers for carrier
+    const tiers = [];
+    if (r.rate_normal && Number(r.rate_normal) > 0) tiers.push({ minWeight: 0, rate: Number(r.rate_normal) });
+    if (r.rate_45 && Number(r.rate_45) > 0)         tiers.push({ minWeight: 45, rate: Number(r.rate_45) });
+    if (r.rate_100 && Number(r.rate_100) > 0)       tiers.push({ minWeight: 100, rate: Number(r.rate_100) });
+    if (r.rate_250 && Number(r.rate_250) > 0)       tiers.push({ minWeight: 250, rate: Number(r.rate_250) });
+    if (r.rate_300 && Number(r.rate_300) > 0)       tiers.push({ minWeight: 300, rate: Number(r.rate_300) });
+    if (r.rate_500 && Number(r.rate_500) > 0)       tiers.push({ minWeight: 500, rate: Number(r.rate_500) });
+    if (r.rate_1000 && Number(r.rate_1000) > 0)     tiers.push({ minWeight: 1000, rate: Number(r.rate_1000) });
+
+    let naturalIdx = 0;
+    for (let i = 0; i < tiers.length; i++) {
+      if (cw >= tiers[i].minWeight) naturalIdx = i;
+    }
+
+    let effectiveRate = tiers[naturalIdx] ? Math.round(tiers[naturalIdx].rate * multiplier) : 150;
+    let baseFreight = Math.round(effectiveRate * cw);
+
+    // 2. Break-even check against higher slabs: ((NextRate * NextWeight) / CurrentRate)
+    for (let j = naturalIdx + 1; j < tiers.length; j++) {
+      const higherRate = Math.round(tiers[j].rate * multiplier);
+      const higherFreight = Math.round(tiers[j].minWeight * higherRate);
+      if (higherFreight < baseFreight) {
+        baseFreight = higherFreight;
+        effectiveRate = higherRate;
+      }
+    }
+
+    // 3. Absolute minimum charge floor check
+    if (r.min_charge && Number(r.min_charge) > 0) {
+      baseFreight = Math.max(baseFreight, Number(r.min_charge));
+    }
+    const rawFsc = Number(r.fsc_per_kg);
+    const rawSsc = Number(r.ssc_per_kg);
+    const effectiveFsc = !isNaN(rawFsc) && rawFsc > 0 ? rawFsc : 18.0;
+    const effectiveSsc = !isNaN(rawSsc) && rawSsc > 0 ? rawSsc : 3.5;
+    const fsc = Math.round(Math.max(effectiveFsc * cw, Number(r.fsc_min) || 1500));
+    const ssc = Math.round(Math.max(effectiveSsc * cw, Number(r.ssc_min) || 350));
+    const fuelSecurity = fsc + ssc;
+    const xray = Math.round(Math.max((Number(r.xray_per_kg) || 3.5) * cw, Number(r.xray_min) || 0));
+    const misc = Math.round(Math.max((Number(r.misc_per_kg) || 2) * cw, Number(r.misc_min) || 0));
+    const ctg = Math.round(Math.max((Number(r.ctg_per_kg) || 0) * cw, Number(r.ctg_min) || 0));
+    const originTHC = xray + misc + ctg + commodityFee;
+    const awbFee = Number(r.awb_fee) || 800;
+    const amsFee = Number(r.ams_mawb) || 0;
+    const subtotal = baseFreight + fuelSecurity + originTHC + awbFee + amsFee;
+    const tax = Math.round(subtotal * 0.05); // 5% Air Export GST
+    const baseTotal = subtotal + tax;
+    const total = Math.round(baseTotal * 1.04); // 4% commercial markup before displaying price
+
+    const schedule = getFlightSchedule(r.carrier_code, r.origin || origin, r.destination || destination, idx);
+
+    const includedServices = [
+      `${r.service_tier || 'Air Freight'} Uplift`,
+      'Fuel & Security Surcharges',
+      'e-AWB Issuance',
+      'X-Ray & Terminal Handling',
+      '5% Air Export GST',
+    ];
+    if (commodityFee > 0) {
+      if (normCat.includes('dangerous') || normCat.includes('dgr')) {
+        includedServices.push('DGR Acceptance & Inspection');
+      } else {
+        includedServices.push('Cool Chain Storage & Apron Monitoring');
+      }
+    }
+
+    return {
+      id: `floci-rate-${idx}`,
+      carrier: formatAirlineName(r.airline),
+      carrierCode: r.carrier_code,
+      prefix: r.prefix,
+      code: schedule.flight,
+      service: r.service_tier || (schedule.direct ? 'Scheduled Air Export' : 'Connecting Interline Route'),
+      cargoCategory: r.cargo_category || cargoType || 'General cargo',
+      paymentType: r.payment_type || 'PP',
+      departure: schedule.departure,
+      arrival: schedule.arrival,
+      transit: schedule.transit,
+      chargeableWeight,
+      ratePerKg: effectiveRate,
+      baseFreight,
+      fuelSecurity,
+      fsc,
+      ssc,
+      originTHC,
+      tax,
+      total,
+      contractTotal: Math.round(total * 0.92),
+      direct: schedule.direct,
+      recommended: false,
+      cutoff: schedule.cutoff,
+      included: includedServices,
+    };
+  });
+
+  calculated.sort((a, b) => a.total - b.total);
+  if (calculated.length > 0) {
+    calculated[0].recommended = true;
+  }
+
+  return {
+    chargeableWeight,
+    rates: calculated.slice(0, 12),
+  };
+}

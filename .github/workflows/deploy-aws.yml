@@ -48,10 +48,21 @@ jobs:
           aws configure set default.region "$REGION"
           echo "AWS credentials configured successfully for region $REGION."
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
       - name: Package Backend Code
         run: |
           cd server
-          zip -r ../lambda-bundle.zip lambda.mjs lib/freight-domain.mjs lib/security.mjs data/CONSOLIDATED_AIR_FREIGHT_RATES.csv package.json
+          pnpm install --prod --no-frozen-lockfile
+          zip -r ../lambda-bundle.zip lambda.mjs lib/ data/CONSOLIDATED_AIR_FREIGHT_RATES.csv package.json node_modules/
           cd ..
 
       - name: Update Lambda Function Code
@@ -79,7 +90,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 11
 
       - name: Configure AWS Credentials
         id: aws-auth
@@ -100,9 +111,8 @@ jobs:
           aws configure set aws_secret_access_key "$SEC_KEY"
           aws configure set default.region "$REGION"
 
-      - name: Install Frontend Dependencies
-        working-directory: ./client
-        run: pnpm install --frozen-lockfile || pnpm install
+      - name: Install Dependencies
+        run: pnpm install --no-frozen-lockfile
 
       - name: Run TypeScript Typecheck
         working-directory: ./client

@@ -42,133 +42,43 @@ import {
   formatInr,
   parseTransitMinutes,
   parseDepartureMinutes,
+  convertToCm,
+  calculateVolumetricWeight,
+  calculateCbm,
+  type DimensionUnit,
 } from './lib/freight-domain';
 import { AirlineLogo } from './components/AirlineLogo';
-import { CorporateUidModal } from './components/modals/CorporateUidModal';
 import { QuickTrackModal } from './components/modals/QuickTrackModal';
 import { DocumentPreviewModal } from './components/modals/DocumentPreviewModal';
 import { HeavyCargoInquiry } from './components/rates/HeavyCargoInquiry';
-
-/* ==========================================================================
-   TYPES & DATA MODELS
-   ========================================================================== */
-
-export type CargoType = 'General cargo' | 'Express courier' | 'Pharma healthcare' | 'Dangerous goods' | 'Perishables' | '';
-
-export type QuoteForm = {
-  origin: string;
-  destination: string;
-  readyDate: string;
-  pieces: string;
-  weight: string;
-  volume: string;
-  cargoType: CargoType;
-  dimensionMode?: 'dimensions' | 'cbm';
-  length?: string;
-  width?: string;
-  height?: string;
-};
-
-export type PieceLine = {
-  id: string;
-  pieces: number;
-  length: number;
-  width: number;
-  height: number;
-  weightPerPiece: number;
-};
-
-export type Incoterm = 'CIF' | 'CIP' | 'CPT' | 'DAP' | 'FOB' | 'EXW' | '';
-export type PackagingType = 'Corrugated Cartons' | 'Wooden Crates (ISPM-15)' | 'Drums / Barrels' | 'Palletized Unit' | '';
-export type TempCondition = 'None' | 'Cold Chain (+2° to +8°C)' | 'Controlled Room Temp (+15° to +25°C)' | '';
-
-export type BookingForm = {
-  shipperName: string;
-  shipperEmail: string;
-  shipperPhone: string;
-  shipperCompany: string;
-  shipperAddress: string;
-  shipperGstin: string;
-  shipperIec: string;
-  adCode?: string;
-  consigneeName: string;
-  consigneeEmail: string;
-  consigneePhone: string;
-  consigneeCompany: string;
-  consigneeAddress: string;
-  consigneeTaxId?: string;
-  cargoDescription: string;
-  hsCode: string;
-  packagingType: PackagingType;
-  incoterm: Incoterm;
-  tempCondition?: TempCondition;
-  dgUnNumber?: string;
-  doorPickup: boolean;
-};
-
-export type RateBreakdown = {
-  baseFreight: number;
-  fuelSecurity: number;
-  originTHC: number;
-  gstTax: number;
-  total: number;
-};
-
-export type Rate = {
-  id: string;
-  carrier: string;
-  carrierCode?: string;
-  code: string;
-  service: string;
-  cargoCategory?: string;
-  departure: string;
-  arrival: string;
-  transit: string;
-  total: number;
-  contractTotal?: number;
-  base: number;
-  fuelSecurity: number;
-  originTHC: number;
-  tax: number;
-  included: string[];
-  accent: string;
-  recommended?: boolean;
-  direct?: boolean;
-  cutoff: string;
-  chargeableWeight?: number;
-  ratePerKg?: number;
-};
-
-export type Milestone = {
-  title: string;
-  description: string;
-  timestamp: string;
-  completed: boolean;
-  current?: boolean;
-};
-
-export type ShipmentRecord = {
-  reference: string;
-  awbNumber: string;
-  carrier: string;
-  flight: string;
-  origin: string;
-  destination: string;
-  chargeableWeight: number;
-  commodity: string;
-  status: string;
-  statusStep: number;
-  readyDate: string;
-  cutoff: string;
-  totalAmount: number;
-  pickupRequired: boolean;
-  milestones: Milestone[];
-};
-
-export type DocumentPreview = {
-  title: string;
-  type: string;
-  reference: string;
+import { Field, StyledSelect, CustomDatePicker } from './components/form/FormControls';
+import type {
+  CargoType,
+  QuoteForm,
+  PieceLine,
+  Incoterm,
+  PackagingType,
+  TempCondition,
+  BookingForm,
+  RateBreakdown,
+  Rate,
+  Milestone,
+  ShipmentRecord,
+  DocumentPreview,
+} from './types/booking';
+export type {
+  CargoType,
+  QuoteForm,
+  PieceLine,
+  Incoterm,
+  PackagingType,
+  TempCondition,
+  BookingForm,
+  RateBreakdown,
+  Rate,
+  Milestone,
+  ShipmentRecord,
+  DocumentPreview,
 };
 
 /* ==========================================================================
@@ -199,14 +109,6 @@ const locations = [
   { code: 'LOS', city: 'Lagos', airport: 'Murtala Muhammed Intl' },
 ];
 
-const cargoTypes: CargoType[] = [
-  'General cargo',
-  'Express courier',
-  'Pharma healthcare',
-  'Dangerous goods',
-  'Perishables',
-];
-
 const cargoCategoryOptions = [
   { value: 'General cargo', label: 'General Cargo (Standard Freight / Consolidated)' },
   { value: 'Express courier', label: 'Express Courier (Priority Uplift / High Speed)' },
@@ -214,8 +116,6 @@ const cargoCategoryOptions = [
   { value: 'Dangerous goods', label: 'Dangerous Goods (DGR / Hazmat / Lithium Batteries)' },
   { value: 'Perishables', label: 'Perishables (Cold Storage / Fresh Food / Flowers)' },
 ];
-
-const initialMockRates: Rate[] = [];
 
 const mockShipments: ShipmentRecord[] = [
   {
@@ -415,392 +315,6 @@ function Logo() {
   );
 }
 
-function Field({
-  label,
-  value,
-  onChange,
-  placeholder,
-  type = 'text',
-  invalid,
-  helper,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  type?: string;
-  invalid?: boolean;
-  helper?: string;
-}) {
-  return (
-    <label className="block">
-      <span className="font-mulish mb-1.5 sm:mb-2 block text-[10px] sm:text-[11px] font-extrabold uppercase tracking-normal sm:tracking-[.08em] text-[#555c61] truncate" title={label}>
-        {label}
-      </span>
-      <input
-        data-testid={`input-${label.toLowerCase().replaceAll(' ', '-')}`}
-        className={`booking-input min-h-[44px] ${invalid ? 'invalid' : ''}`}
-        type={type}
-        value={value}
-        placeholder={placeholder}
-        onChange={(event) => onChange(event.target.value)}
-        aria-invalid={invalid}
-      />
-      {helper ? <span className="font-mulish mt-1.5 block text-[11px] text-[#908e92]">{helper}</span> : null}
-    </label>
-  );
-}
-
-function StyledSelect({
-  id,
-  label,
-  value,
-  onChange,
-  options,
-  placeholder,
-  icon,
-  compact = false,
-}: {
-  id: string;
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  options: Array<{ value: string; label: string }>;
-  placeholder?: string;
-  icon?: React.ReactNode;
-  compact?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const wrapperRef = useRef<HTMLDivElement>(null);
-  const selected = options.find((option) => option.value === value);
-
-  useEffect(() => {
-    const closeOnOutsideClick = (event: MouseEvent) => {
-      if (!wrapperRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('mousedown', closeOnOutsideClick);
-    document.addEventListener('keydown', closeOnEscape);
-    return () => {
-      document.removeEventListener('mousedown', closeOnOutsideClick);
-      document.removeEventListener('keydown', closeOnEscape);
-    };
-  }, []);
-
-  return (
-    <div ref={wrapperRef} className={`relative ${compact ? 'flex items-center gap-2' : ''}`}>
-      <label
-        htmlFor={id}
-        className={`font-mulish block text-[11px] font-extrabold uppercase tracking-[.08em] text-[#4d5b62] ${
-          compact ? 'shrink-0 normal-case tracking-normal' : 'mb-2'
-        }`}
-      >
-        {label}
-      </label>
-      <button
-        id={id}
-        type="button"
-        className={`booking-input select-trigger flex items-center gap-3 text-left ${
-          compact ? 'w-auto min-w-[164px] rounded-full px-3 py-2 text-[11px]' : ''
-        }`}
-        onClick={() => setOpen((current) => !current)}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        data-testid={`select-${id}`}
-      >
-        {icon ? <span className="select-leading-icon">{icon}</span> : null}
-        <span className={`min-w-0 flex-1 truncate ${!selected ? 'text-[#908e92]' : ''}`}>
-          {selected ? selected.label : (placeholder || 'Select an option...')}
-        </span>
-        <ChevronDown size={16} className={`select-chevron shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
-      <AnimatePresence>
-        {open ? (
-          <motion.div
-            initial={{ opacity: 0, y: -4, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, scale: 0.98 }}
-            transition={{ duration: 0.14 }}
-            className={`select-menu ${compact ? 'min-w-[164px]' : ''}`}
-            role="listbox"
-            aria-label={label}
-          >
-            {options.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                role="option"
-                aria-selected={option.value === value}
-                className={`select-option ${option.value === value ? 'selected' : ''}`}
-                onClick={() => {
-                  onChange(option.value);
-                  setOpen(false);
-                }}
-              >
-                <span>{option.label}</span>
-                {option.value === value ? <Check size={15} /> : null}
-              </button>
-            ))}
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-function CustomDatePicker({
-  id,
-  label,
-  value,
-  onChange,
-  placeholder = 'Select cargo ready date...',
-}: {
-  id: string;
-  label: string;
-  value: string;
-  onChange: (val: string) => void;
-  placeholder?: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const today = useMemo(() => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }, []);
-
-  const [viewDate, setViewDate] = useState(() => {
-    if (value) {
-      const parts = value.split('-').map(Number);
-      if (parts.length === 3) return new Date(parts[0], parts[1] - 1, parts[2]);
-    }
-    return new Date();
-  });
-
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    if (open) {
-      document.addEventListener('mousedown', handleClick);
-      document.addEventListener('keydown', handleKey);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClick);
-      document.removeEventListener('keydown', handleKey);
-    };
-  }, [open]);
-
-  const formattedDisplay = useMemo(() => {
-    if (!value) return '';
-    try {
-      const parts = value.split('-').map(Number);
-      if (parts.length === 3) {
-        const d = new Date(parts[0], parts[1] - 1, parts[2]);
-        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        return `${dayNames[d.getDay()]}, ${String(d.getDate()).padStart(2, '0')} ${monthNames[d.getMonth()]} ${d.getFullYear()}`;
-      }
-    } catch {
-      return value;
-    }
-    return value;
-  }, [value]);
-
-  const viewYear = viewDate.getFullYear();
-  const viewMonth = viewDate.getMonth();
-  const monthNamesFull = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
-
-  const prevMonth = () => setViewDate(new Date(viewYear, viewMonth - 1, 1));
-  const nextMonth = () => setViewDate(new Date(viewYear, viewMonth + 1, 1));
-
-  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-  const startDayOfWeek = new Date(viewYear, viewMonth, 1).getDay();
-
-  const formatDateStr = (d: Date) => {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  };
-
-  const handleSelectDay = (day: number) => {
-    const selected = new Date(viewYear, viewMonth, day);
-    onChange(formatDateStr(selected));
-    setOpen(false);
-  };
-
-  const handleQuickSelect = (offsetDays: number) => {
-    const target = new Date();
-    target.setDate(target.getDate() + offsetDays);
-    setViewDate(target);
-    onChange(formatDateStr(target));
-    setOpen(false);
-  };
-
-  return (
-    <div ref={containerRef} className="relative">
-      <label
-        htmlFor={id}
-        className="font-mulish block text-[11px] font-extrabold uppercase tracking-[.08em] text-[#4d5b62] mb-2"
-      >
-        {label}
-      </label>
-      <button
-        id={id}
-        type="button"
-        onClick={() => setOpen((prev) => !prev)}
-        className="booking-input select-trigger flex items-center gap-3 text-left w-full cursor-pointer"
-        aria-haspopup="dialog"
-        aria-expanded={open}
-      >
-        <Calendar size={16} className="text-[#187e9c] shrink-0" />
-        <span className={`min-w-0 flex-1 truncate ${!value ? 'text-[#908e92]' : 'font-semibold text-[#101820]'}`}>
-          {formattedDisplay || placeholder}
-        </span>
-        <ChevronDown size={16} className={`select-chevron shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
-
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: 6, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 4, scale: 0.98 }}
-            transition={{ duration: 0.16 }}
-            className="absolute left-0 top-[calc(100%+6px)] z-50 w-full min-w-[310px] max-w-[340px] rounded-2xl border border-[#dfe5e7] bg-white p-4 shadow-xl ring-1 ring-black/5"
-            role="dialog"
-            aria-label="Choose Ready Date"
-          >
-            {/* Quick Presets */}
-            <div className="flex items-center gap-1.5 pb-3 border-b border-[#f0f2f3]">
-              <span className="text-[10px] font-bold text-[#8896a1] uppercase tracking-wider mr-1">Quick:</span>
-              <button
-                type="button"
-                onClick={() => handleQuickSelect(0)}
-                className="rounded-full bg-[#f4f7f8] px-2.5 py-1 text-[11px] font-bold text-[#101820] hover:bg-[#e7edf0] transition cursor-pointer"
-              >
-                Today
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickSelect(1)}
-                className="rounded-full bg-[#f4f7f8] px-2.5 py-1 text-[11px] font-bold text-[#101820] hover:bg-[#e7edf0] transition cursor-pointer"
-              >
-                Tomorrow
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickSelect(3)}
-                className="rounded-full bg-[#f4f7f8] px-2.5 py-1 text-[11px] font-bold text-[#101820] hover:bg-[#e7edf0] transition cursor-pointer"
-              >
-                +3 Days
-              </button>
-            </div>
-
-            {/* Month & Year Navigation Header */}
-            <div className="flex items-center justify-between py-2.5">
-              <button
-                type="button"
-                onClick={prevMonth}
-                aria-label="Previous month"
-                className="rounded-lg p-1.5 text-[#556972] hover:bg-[#f4f7f8] hover:text-[#101820] transition cursor-pointer"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <div className="font-extrabold text-[13px] text-[#101820]">
-                {monthNamesFull[viewMonth]} {viewYear}
-              </div>
-              <button
-                type="button"
-                onClick={nextMonth}
-                aria-label="Next month"
-                className="rounded-lg p-1.5 text-[#556972] hover:bg-[#f4f7f8] hover:text-[#101820] transition cursor-pointer"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-
-            {/* Day Names Row */}
-            <div className="grid grid-cols-7 gap-1 text-center font-mulish text-[10px] font-extrabold text-[#908e92] uppercase py-1">
-              {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
-                <div key={d}>{d}</div>
-              ))}
-            </div>
-
-            {/* Calendar Days Grid */}
-            <div className="grid grid-cols-7 gap-1 mt-1">
-              {Array.from({ length: startDayOfWeek }).map((_, i) => (
-                <div key={`empty-${i}`} />
-              ))}
-              {Array.from({ length: daysInMonth }).map((_, i) => {
-                const dayNum = i + 1;
-                const cellDate = new Date(viewYear, viewMonth, dayNum);
-                cellDate.setHours(0, 0, 0, 0);
-                const isPast = cellDate < today;
-                const dateStr = formatDateStr(cellDate);
-                const isSelected = value === dateStr;
-                const isCurrentToday = cellDate.getTime() === today.getTime();
-
-                return (
-                  <button
-                    key={dayNum}
-                    type="button"
-                    disabled={isPast}
-                    onClick={() => handleSelectDay(dayNum)}
-                    className={`h-8 w-8 rounded-xl font-mulish text-[12px] font-bold transition flex items-center justify-center cursor-pointer relative ${
-                      isSelected
-                        ? 'bg-[#101820] text-white shadow-xs'
-                        : isPast
-                        ? 'text-[#cbd5e1] cursor-not-allowed'
-                        : isCurrentToday
-                        ? 'bg-[#f4f7f8] text-[#187e9c] ring-1 ring-[#187e9c]/40 font-extrabold hover:bg-[#e7edf0]'
-                        : 'text-[#101820] hover:bg-[#f4f7f8] hover:text-[#187e9c]'
-                    }`}
-                  >
-                    {dayNum}
-                    {isCurrentToday && !isSelected && (
-                      <span className="absolute bottom-1 h-1 w-1 rounded-full bg-[#187e9c]" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Footer with Clear */}
-            {value && (
-              <div className="mt-3 flex items-center justify-between border-t border-[#f0f2f3] pt-2 text-[11px] font-mulish font-bold">
-                <span className="text-[#64748b] truncate max-w-[180px]">{formattedDisplay}</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onChange('');
-                    setOpen(false);
-                  }}
-                  className="text-[#b44f47] hover:underline cursor-pointer"
-                >
-                  Clear
-                </button>
-              </div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
 function AtlasAircraft() {
   return (
     <svg viewBox="0 0 360 560" fill="none" role="img" aria-label="Top-down illustration of a cargo aircraft">
@@ -857,32 +371,61 @@ function App() {
     } catch {}
   }, []);
 
-  // Auth / Corporate contract state
-  const [isContractUser, setIsContractUser] = useState<boolean>(false);
-  const [contractUidInput, setContractUidInput] = useState<string>('');
-  const [contractCompanyName, setContractCompanyName] = useState<string>('');
-  const [isUidModalOpen, setIsUidModalOpen] = useState<boolean>(false);
-  const [uidError, setUidError] = useState<string>('');
+  // JFLL Returning Partner identification state (replaces separate corporate login)
+  const [hasWorkedWithJfll, setHasWorkedWithJfll] = useState<boolean>(false);
+  const [jfllIdentifier, setJfllIdentifier] = useState<string>('');
+  const isContractUser = hasWorkedWithJfll && Boolean(jfllIdentifier.trim());
+  const contractCompanyName = jfllIdentifier.trim() || 'JFLL Partner';
+  const contractUidInput = jfllIdentifier.trim();
+
+  const clearJfllPartner = () => {
+    setHasWorkedWithJfll(false);
+    setJfllIdentifier('');
+    setQuote((prev) => ({
+      ...prev,
+      hasWorkedWithJfll: false,
+      jfllIdentifier: '',
+      hasWorkedWithJfl: false,
+      jflIdentifier: '',
+    }));
+  };
 
   // Tracking modal state
   const [isTrackModalOpen, setIsTrackModalOpen] = useState<boolean>(false);
   const [trackQuery, setTrackQuery] = useState<string>('');
   const [trackResult, setTrackResult] = useState<ShipmentRecord | null>(null);
 
-  // Mutually exclusive modal openers to prevent stacking
-  const openUidModal = () => {
-    setIsTrackModalOpen(false);
-    setIsUidModalOpen(true);
-  };
-
   const openTrackModal = () => {
-    setIsUidModalOpen(false);
     setIsTrackModalOpen(true);
   };
 
-  // Operations Dashboard state
-  const [shipmentsList, setShipmentsList] = useState<ShipmentRecord[]>(mockShipments);
-  const [selectedShipment, setSelectedShipment] = useState<ShipmentRecord>(mockShipments[0]);
+  // Operations Dashboard state with LocalStorage persistence (Finding 8)
+  const [shipmentsList, setShipmentsList] = useState<ShipmentRecord[]>(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const saved = window.localStorage.getItem('jf_shipments');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch (e) {
+        console.warn('Failed to parse shipments from localStorage', e);
+      }
+    }
+    return mockShipments;
+  });
+  const [selectedShipment, setSelectedShipment] = useState<ShipmentRecord>(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const saved = window.localStorage.getItem('jf_shipments');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed[0];
+        }
+      } catch {}
+    }
+    return mockShipments[0];
+  });
   const [activeDocumentPreview, setActiveDocumentPreview] = useState<DocumentPreview | null>(null);
 
   // Quote form state
@@ -895,9 +438,14 @@ function App() {
     volume: '',
     cargoType: '' as CargoType,
     dimensionMode: 'dimensions',
+    dimensionUnit: 'cm',
     length: '',
     width: '',
     height: '',
+    hasWorkedWithJfll: false,
+    jfllIdentifier: '',
+    hasWorkedWithJfl: false,
+    jflIdentifier: '',
   });
   const [quoteError, setQuoteError] = useState('');
 
@@ -945,29 +493,31 @@ function App() {
   const actualWeight = Number(quote.weight) || 0;
   const cbmVolWeight = (Number(quote.volume) || 0) * 167;
 
-  // IATA standard volumetric weight from dimensions: (Length × Breadth × Height × Pieces) ÷ 6,000
+  // IATA standard volumetric weight from dimensions: (Length × Breadth × Height × Pieces) ÷ 6,000 (with unit conversion)
   const dimVolWeight = useMemo(() => {
     const l = Number(quote.length) || 0;
     const w = Number(quote.width) || 0;
     const h = Number(quote.height) || 0;
     const pcs = Math.max(1, Number(quote.pieces) || 1);
+    const unit = quote.dimensionUnit || 'cm';
     if (l > 0 && w > 0 && h > 0) {
-      return Math.round(((l * w * h * pcs) / 6000) * 10) / 10;
+      return calculateVolumetricWeight(l, w, h, pcs, unit);
     }
     return 0;
-  }, [quote.length, quote.width, quote.height, quote.pieces]);
+  }, [quote.length, quote.width, quote.height, quote.pieces, quote.dimensionUnit]);
 
-  // Derived Volume in CBM: (Length × Breadth × Height × Pieces) ÷ 1,000,000
+  // Derived Volume in CBM: (Length × Breadth × Height × Pieces) ÷ 1,000,000 (with unit conversion)
   const dimCbm = useMemo(() => {
     const l = Number(quote.length) || 0;
     const w = Number(quote.width) || 0;
     const h = Number(quote.height) || 0;
     const pcs = Math.max(1, Number(quote.pieces) || 1);
+    const unit = quote.dimensionUnit || 'cm';
     if (l > 0 && w > 0 && h > 0) {
-      return Math.round(((l * w * h * pcs) / 1000000) * 1000) / 1000;
+      return calculateCbm(l, w, h, pcs, unit);
     }
     return 0;
-  }, [quote.length, quote.width, quote.height, quote.pieces]);
+  }, [quote.length, quote.width, quote.height, quote.pieces, quote.dimensionUnit]);
 
   const activeVolumetricWeight = useMemo(() => {
     if (quote.dimensionMode === 'cbm') {
@@ -979,11 +529,17 @@ function App() {
   const totalVolumetricWeightFromLines = useMemo(() => {
     return Math.round(
       pieceLines.reduce((acc, p) => {
-        const vol = ((Number(p.length) || 0) * (Number(p.width) || 0) * (Number(p.height) || 0)) / 6000;
-        return acc + vol * (Number(p.pieces) || 0);
+        const vol = calculateVolumetricWeight(
+          Number(p.length) || 0,
+          Number(p.width) || 0,
+          Number(p.height) || 0,
+          Number(p.pieces) || 0,
+          p.unit || quote.dimensionUnit || 'cm'
+        );
+        return acc + vol;
       }, 0) * 10
     ) / 10;
-  }, [pieceLines]);
+  }, [pieceLines, quote.dimensionUnit]);
 
   const volumetricWeight = Math.round(Math.max(totalVolumetricWeightFromLines, activeVolumetricWeight) * 10) / 10;
   // IATA TACT Rule 1.3.2: Round chargeable weight up to nearest 0.5 kg
@@ -1020,26 +576,6 @@ function App() {
       isMounted = false;
     };
   }, [quote.origin, quote.destination, actualWeight, volumetricWeight, quote.cargoType, chargeableWeight]);
-
-  const parseTransitMinutes = (transitStr: string): number => {
-    if (!transitStr) return 9999;
-    const match = transitStr.match(/(\d+)\s*h(?:rs?)?(?:\s*(\d+)\s*m)?/i);
-    if (match) {
-      const hours = parseInt(match[1], 10) || 0;
-      const minutes = parseInt(match[2] || '0', 10) || 0;
-      return hours * 60 + minutes;
-    }
-    return 9999;
-  };
-
-  const parseDepartureMinutes = (depStr: string): number => {
-    if (!depStr) return 0;
-    const parts = depStr.split(' ')[0]?.split(':');
-    if (parts && parts.length === 2) {
-      return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
-    }
-    return 0;
-  };
 
   // Filtered rates list
   const filteredRates = useMemo(() => {
@@ -1097,7 +633,7 @@ function App() {
     scrollToQuote();
   };
 
-  const updateQuote = (key: keyof QuoteForm, value: string) =>
+  const updateQuote = <K extends keyof QuoteForm>(key: K, value: QuoteForm[K]) =>
     setQuote((current) => {
       const next = { ...current, [key]: key === 'origin' ? 'BOM' : value };
       if (key === 'length' || key === 'width' || key === 'height' || key === 'pieces') {
@@ -1116,7 +652,7 @@ function App() {
     setBooking((current) => ({ ...current, [key]: value }));
 
   const handleAddPieceLine = () => {
-    const newId = `p-${Date.now()}`;
+    const newId = `p-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     setPieceLines((prev) => [
       ...prev,
       { id: newId, pieces: 0, length: 0, width: 0, height: 0, weightPerPiece: 0 },
@@ -1135,7 +671,10 @@ function App() {
 
   const submitQuote = (event: React.FormEvent) => {
     event.preventDefault();
-    console.log('SUBMIT QUOTE TRIGGERED:', quote);
+    if (hasWorkedWithJfll && !jfllIdentifier.trim()) {
+      setQuoteError("Please enter your JFLL Member ID, Client ID, or Company Name, or select 'No'.");
+      return;
+    }
     if (
       !quote.origin ||
       !quote.destination ||
@@ -1192,6 +731,7 @@ function App() {
           length: Number(quote.length) || 0,
           width: Number(quote.width) || 0,
           height: Number(quote.height) || 0,
+          unit: quote.dimensionUnit || 'cm',
           weightPerPiece: Math.round(((Number(quote.weight) || 0) / (Number(quote.pieces) || 1)) * 10) / 10,
         },
       ]);
@@ -1313,7 +853,15 @@ function App() {
       ],
     };
 
-    setShipmentsList((prev) => [newShipment, ...prev]);
+    setShipmentsList((prev) => {
+      const updated = [newShipment, ...prev];
+      try {
+        localStorage.setItem('jf_shipments', JSON.stringify(updated));
+      } catch (err) {
+        console.warn('Failed to persist shipment to localStorage:', err);
+      }
+      return updated;
+    });
     setSelectedShipment(newShipment);
     setActiveStep(3);
     window.setTimeout(() => scrollToQuote(), 50);
@@ -1335,16 +883,33 @@ function App() {
           awbNumber: newShipment.awbNumber,
           origin: quote.origin,
           destination: quote.destination,
+          readyDate: quote.readyDate,
           carrier: selectedRate.carrier,
           flight: selectedRate.code,
           shipper: booking.shipperName,
+          shipperName: booking.shipperName,
+          shipperCompany: booking.shipperCompany,
+          shipperEmail: booking.shipperEmail,
+          shipperPhone: booking.shipperPhone,
+          shipperGstin: booking.shipperGstin,
+          shipperIec: booking.shipperIec,
           consignee: booking.consigneeName,
+          consigneeName: booking.consigneeName,
+          consigneeCompany: booking.consigneeCompany,
+          consigneeEmail: booking.consigneeEmail,
+          consigneePhone: booking.consigneePhone,
           commodity: booking.cargoDescription || quote.cargoType,
+          cargoDescription: booking.cargoDescription,
           cargoCategory: quote.cargoType,
           packagingType: booking.packagingType,
           incoterm: booking.incoterm,
+          pieces: quote.pieces,
           chargeableWeight,
           totalAmount: finalAmount,
+          hasWorkedWithJfll,
+          jfllIdentifier: jfllIdentifier.trim() || undefined,
+          hasWorkedWithJfl: hasWorkedWithJfll,
+          jflIdentifier: jfllIdentifier.trim() || undefined,
         }),
       }).catch(() => {});
     } catch {
@@ -1368,17 +933,6 @@ function App() {
       (s) => s.reference.toUpperCase().includes(query) || s.awbNumber.toUpperCase().includes(query)
     );
     setTrackResult(found ?? null);
-  };
-
-  const handleApplyUidLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!contractUidInput.trim()) {
-      setUidError('Please enter a valid Corporate UID.');
-      return;
-    }
-    setUidError('');
-    setIsContractUser(true);
-    setIsUidModalOpen(false);
   };
 
   return (
@@ -1425,28 +979,19 @@ function App() {
           </nav>
 
           <div className="hidden items-center gap-4 sm:flex">
-            {/* Corporate UID Contract Login Status */}
-            {isContractUser ? (
+            {/* JFLL Partner Identification Status */}
+            {isContractUser && (
               <div className="flex items-center gap-2 rounded-full border border-[#d4e9e3] bg-[#eef8f5] px-3.5 py-1.5 font-mulish text-[11px] font-extrabold text-[#176579]">
                 <UserCheck size={14} className="text-[#187e9c]" />
                 <span className="truncate max-w-[140px]">{contractCompanyName}</span>
                 <button
-                  onClick={() => setIsContractUser(false)}
-                  className="ml-1 text-[10px] font-bold text-[#908e92] hover:text-[#b44f47]"
-                  title="Log out of Contract Account"
+                  onClick={clearJfllPartner}
+                  className="ml-1 text-[10px] font-bold text-[#908e92] hover:text-[#b44f47] cursor-pointer"
+                  title="Clear JFLL Partner details"
                 >
-                  (Exit)
+                  (Clear)
                 </button>
               </div>
-            ) : (
-              <button
-                onClick={openUidModal}
-                className="focus-ring flex items-center gap-1.5 rounded-full border border-[#c5d0d2] bg-white/80 px-3.5 py-2 font-mulish text-[11px] font-extrabold text-[#16243a] transition hover:bg-white"
-                data-testid="button-contract-login"
-              >
-                <LockKeyhole size={13} className="text-[#187e9c]" />
-                <span>Log in</span>
-              </button>
             )}
 
             <button
@@ -1500,29 +1045,19 @@ function App() {
                   <Search size={15} /> Track Shipment
                 </button>
 
-                <div className="mt-2 pt-3 border-t border-[#dfe5e7] flex items-center justify-between">
-                  {isContractUser ? (
-                    <div className="flex items-center gap-2 text-xs font-bold text-[#176579]">
+                {isContractUser && (
+                  <div className="mt-2 pt-3 border-t border-[#dfe5e7] flex items-center justify-between text-xs font-bold text-[#176579]">
+                    <div className="flex items-center gap-2">
                       <UserCheck size={14} /> {contractCompanyName}
-                      <button
-                        onClick={() => setIsContractUser(false)}
-                        className="text-red-600 underline ml-2"
-                      >
-                        Log out
-                      </button>
                     </div>
-                  ) : (
                     <button
-                      onClick={() => {
-                        setMobileMenu(false);
-                        openUidModal();
-                      }}
-                      className="flex items-center gap-1.5 text-xs font-bold text-[#101820]"
+                      onClick={clearJfllPartner}
+                      className="text-[#908e92] hover:text-[#b44f47] text-xs font-bold cursor-pointer"
                     >
-                      <LockKeyhole size={14} className="text-[#187e9c]" /> Log in with Corporate UID
+                      Clear
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             </motion.div>
           )}
@@ -1855,33 +1390,53 @@ function App() {
 
                       {/* Cargo Sizing & Volumetric Weight Options */}
                       <div className="rounded-xl border border-[#dfe5e7] bg-[#f8fbfa] p-3.5 space-y-3">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
                           <span className="font-mulish text-[11px] font-extrabold uppercase tracking-[.08em] text-[#555c61] flex items-center gap-1.5">
                             <Boxes size={14} className="text-[#176579]" /> Cargo Dimensions &amp; Volumetric Weight
                           </span>
-                          <div className="inline-flex rounded-lg bg-[#e8eef0] p-0.5 text-xs font-mulish">
-                            <button
-                              type="button"
-                              onClick={() => updateQuote('dimensionMode', 'dimensions')}
-                              className={`rounded-md px-2.5 py-1 text-[11px] font-bold transition cursor-pointer ${
-                                quote.dimensionMode !== 'cbm'
-                                  ? 'bg-white text-[#176579] shadow-sm'
-                                  : 'text-[#64748b] hover:text-[#101820]'
-                              }`}
-                            >
-                              Dimensions (cm)
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => updateQuote('dimensionMode', 'cbm')}
-                              className={`rounded-md px-2.5 py-1 text-[11px] font-bold transition cursor-pointer ${
-                                quote.dimensionMode === 'cbm'
-                                  ? 'bg-white text-[#176579] shadow-sm'
-                                  : 'text-[#64748b] hover:text-[#101820]'
-                              }`}
-                            >
-                              Direct CBM
-                            </button>
+                          <div className="flex items-center gap-2">
+                            {quote.dimensionMode !== 'cbm' && (
+                              <div className="inline-flex rounded-lg bg-[#e8eef0] p-0.5 text-xs font-mulish">
+                                {(['cm', 'in', 'm', 'mm'] as const).map((u) => (
+                                  <button
+                                    key={u}
+                                    type="button"
+                                    onClick={() => updateQuote('dimensionUnit', u)}
+                                    className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase transition cursor-pointer ${
+                                      (quote.dimensionUnit || 'cm') === u
+                                        ? 'bg-[#176579] text-white shadow-xs'
+                                        : 'text-[#64748b] hover:text-[#101820]'
+                                    }`}
+                                  >
+                                    {u}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                            <div className="inline-flex rounded-lg bg-[#e8eef0] p-0.5 text-xs font-mulish">
+                              <button
+                                type="button"
+                                onClick={() => updateQuote('dimensionMode', 'dimensions')}
+                                className={`rounded-md px-2.5 py-1 text-[11px] font-bold transition cursor-pointer ${
+                                  quote.dimensionMode !== 'cbm'
+                                    ? 'bg-white text-[#176579] shadow-sm'
+                                    : 'text-[#64748b] hover:text-[#101820]'
+                                }`}
+                              >
+                                Dimensions
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updateQuote('dimensionMode', 'cbm')}
+                                className={`rounded-md px-2.5 py-1 text-[11px] font-bold transition cursor-pointer ${
+                                  quote.dimensionMode === 'cbm'
+                                    ? 'bg-white text-[#176579] shadow-sm'
+                                    : 'text-[#64748b] hover:text-[#101820]'
+                                }`}
+                              >
+                                Direct CBM
+                              </button>
+                            </div>
                           </div>
                         </div>
 
@@ -1889,37 +1444,37 @@ function App() {
                           <div className="space-y-2">
                             <div className="grid grid-cols-3 gap-2.5">
                               <Field
-                                label="Length (cm)"
+                                label={`Length (${quote.dimensionUnit || 'cm'})`}
                                 type="number"
                                 value={quote.length || ''}
                                 onChange={(val) => updateQuote('length', val)}
-                                placeholder="e.g. 60"
+                                placeholder={quote.dimensionUnit === 'in' ? 'e.g. 24' : 'e.g. 60'}
                               />
                               <Field
-                                label="Breadth (cm)"
+                                label={`Breadth (${quote.dimensionUnit || 'cm'})`}
                                 type="number"
                                 value={quote.width || ''}
                                 onChange={(val) => updateQuote('width', val)}
-                                placeholder="e.g. 50"
+                                placeholder={quote.dimensionUnit === 'in' ? 'e.g. 16' : 'e.g. 50'}
                               />
                               <Field
-                                label="Height (cm)"
+                                label={`Height (${quote.dimensionUnit || 'cm'})`}
                                 type="number"
                                 value={quote.height || ''}
                                 onChange={(val) => updateQuote('height', val)}
-                                placeholder="e.g. 40"
+                                placeholder={quote.dimensionUnit === 'in' ? 'e.g. 16' : 'e.g. 40'}
                               />
                             </div>
                             <div className="flex items-center justify-between rounded-lg bg-[#edf6f8] px-3 py-1.5 text-[11px] font-mulish text-[#475569]">
                               <span className="text-[#64748b]">
-                                IATA Standard: (L × B × H × Pieces) ÷ 6,000
+                                IATA Standard: (L × B × H × Pieces) ÷ 6,000 {(quote.dimensionUnit || 'cm') !== 'cm' ? `(converted from ${quote.dimensionUnit} to cm)` : ''}
                               </span>
                               {dimVolWeight > 0 ? (
                                 <span className="font-extrabold text-[#176579]">
                                   = {dimVolWeight} kg vol. ({dimCbm} CBM)
                                 </span>
                               ) : (
-                                <span className="text-[#94a3b8] italic">Enter box dimensions in cm</span>
+                                <span className="text-[#94a3b8] italic">Enter box dimensions in {quote.dimensionUnit || 'cm'}</span>
                               )}
                             </div>
                           </div>
@@ -1989,6 +1544,83 @@ function App() {
                         <Info size={16} className="text-[#908e92]" />
                       </div>
                     )}
+
+                    {/* Have you previously worked with JFLL? Form Field Card */}
+                    <div className="mt-5 rounded-2xl border border-[#dfe5e7] bg-[#f8fbfa] p-4 sm:p-5 font-mulish text-xs">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <Building2 size={16} className="text-[#187e9c]" />
+                            <strong className="text-sm text-[#101820]">Have you previously worked with JFLL?</strong>
+                          </div>
+                          <span className="text-[#65686d] text-[11px] block mt-0.5">
+                            Existing clients and corporate partners receive pre-negotiated volume tariff allotments.
+                          </span>
+                        </div>
+                        <div className="inline-flex rounded-xl bg-[#e8eef0] p-1 text-xs shrink-0 self-start sm:self-auto">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setHasWorkedWithJfll(true);
+                              updateQuote('hasWorkedWithJfll', true);
+                              updateQuote('hasWorkedWithJfl', true);
+                            }}
+                            className={`rounded-lg px-4 py-1.5 font-bold transition cursor-pointer ${
+                              hasWorkedWithJfll
+                                ? 'bg-[#176579] text-white shadow-xs'
+                                : 'text-[#64748b] hover:text-[#101820]'
+                            }`}
+                            data-testid="button-worked-with-jfll-yes"
+                          >
+                            Yes
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setHasWorkedWithJfll(false);
+                              setJfllIdentifier('');
+                              updateQuote('hasWorkedWithJfll', false);
+                              updateQuote('jfllIdentifier', '');
+                              updateQuote('hasWorkedWithJfl', false);
+                              updateQuote('jflIdentifier', '');
+                            }}
+                            className={`rounded-lg px-4 py-1.5 font-bold transition cursor-pointer ${
+                              !hasWorkedWithJfll
+                                ? 'bg-white text-[#101820] shadow-xs'
+                                : 'text-[#64748b] hover:text-[#101820]'
+                            }`}
+                            data-testid="button-worked-with-jfll-no"
+                          >
+                            No
+                          </button>
+                        </div>
+                      </div>
+
+                      {hasWorkedWithJfll && (
+                        <div className="mt-4 pt-3.5 border-t border-[#e2e8ea]">
+                          <Field
+                            label="Member ID / Client ID / Company Name *"
+                            value={jfllIdentifier}
+                            onChange={(val) => {
+                              setJfllIdentifier(val);
+                              updateQuote('jfllIdentifier', val);
+                              updateQuote('jflIdentifier', val);
+                              if (!booking.shipperCompany || booking.shipperCompany === jfllIdentifier) {
+                                setBooking((prev) => ({ ...prev, shipperCompany: val }));
+                              }
+                            }}
+                            placeholder="e.g. JFLL-MUM-8921 or Reliance Retail Ltd"
+                            helper="Enter your JFLL partner ID, account number, or registered company name to unlock contracted rates."
+                          />
+                          {jfllIdentifier.trim() && (
+                            <div className="mt-2.5 flex items-center gap-1.5 text-[11px] font-bold text-[#176579]">
+                              <CheckCircle2 size={13} className="text-[#187e9c]" />
+                              <span>JFLL Partner identified ({jfllIdentifier.trim()}) &bull; Negotiated contract tariffs will be applied</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
 
                     {quoteError && (
                       <div
@@ -2297,36 +1929,49 @@ function App() {
 
                       {/* Right: Sidebars */}
                       <div className="space-y-4">
-                        {/* Contract Customer UID Card */}
+                        {/* JFLL Partner Tariffs Card */}
                         <div className="rounded-2xl border border-[#dfe5e7] bg-[#f8fafc] p-5 font-mulish text-xs">
                           <div className="flex items-center gap-2 mb-2">
-                            <LockKeyhole size={16} className="text-[#187e9c]" />
-                            <strong className="text-sm text-[#101820]">Contract customer?</strong>
+                            <Building2 size={16} className="text-[#187e9c]" />
+                            <strong className="text-sm text-[#101820]">
+                              {isContractUser ? 'JFLL Partner Tariffs Applied' : 'Worked with JFLL before?'}
+                            </strong>
                           </div>
-                          <p className="text-[#65686d] leading-relaxed mb-4">
-                            Log in with your corporate UID to reveal your pre-negotiated volume allotments and contracted tariffs.
-                          </p>
 
                           {isContractUser ? (
-                            <div className="space-y-2">
-                              <div className="rounded-xl bg-white p-3 border border-[#d4e9e3] text-[#176579] font-bold">
-                                <div>{contractCompanyName}</div>
-                                <div className="text-[10px] text-[#65686d]">UID: {contractUidInput}</div>
+                            <div className="space-y-2.5">
+                              <p className="text-[#556972] leading-relaxed">
+                                Negotiated corporate rates unlocked for <strong>{contractCompanyName}</strong>.
+                              </p>
+                              <div className="rounded-xl bg-[#eef8f5] p-3 border border-[#d4e9e3] text-[#176579] font-bold">
+                                <div className="text-xs">{contractCompanyName}</div>
+                                <div className="text-[10px] text-[#65686d]">Partner ID / Name: {jfllIdentifier}</div>
                               </div>
                               <button
-                                onClick={() => setIsContractUser(false)}
-                                className="w-full rounded-xl border border-red-200 py-2 text-red-600 hover:bg-red-50 text-[11px] font-extrabold"
+                                onClick={clearJfllPartner}
+                                className="w-full rounded-xl border border-[#dfe5e7] py-2 text-[#64748b] hover:text-[#b44f47] text-[11px] font-bold bg-white transition cursor-pointer"
                               >
-                                Exit Contract Mode
+                                Switch to Standard Rates
                               </button>
                             </div>
                           ) : (
-                            <button
-                              onClick={openUidModal}
-                              className="focus-ring w-full rounded-xl bg-[#101820] py-2.5 font-mulish text-[11px] font-extrabold text-white transition hover:bg-[#263740]"
-                            >
-                              Log in with UID
-                            </button>
+                            <div>
+                              <p className="text-[#65686d] leading-relaxed mb-3">
+                                Existing partners and contract customers receive pre-negotiated volume allotments on all active corridors.
+                              </p>
+                              <button
+                                onClick={() => {
+                                  setActiveStep(0);
+                                  setHasWorkedWithJfll(true);
+                                  updateQuote('hasWorkedWithJfll', true);
+                                  updateQuote('hasWorkedWithJfl', true);
+                                  scrollToQuote();
+                                }}
+                                className="focus-ring w-full rounded-xl border border-[#187e9c] text-[#187e9c] bg-white py-2 font-mulish text-[11px] font-extrabold hover:bg-[#edf6f8] transition cursor-pointer"
+                              >
+                                Add JFLL Member ID / Company
+                              </button>
+                            </div>
                           )}
                         </div>
 
@@ -2570,10 +2215,12 @@ function App() {
                         ) : (
                           <div className="space-y-2.5">
                             {pieceLines.map((line) => {
-                              const isOverHeight = line.height > 100;
+                              const lineUnit = line.unit || quote.dimensionUnit || 'cm';
+                              const heightInCm = convertToCm(line.height, lineUnit);
+                              const isOverHeight = heightInCm > 100;
                               const isHeavyPiece = line.weightPerPiece > 85;
-                              const lineVolCbm = Math.round(((line.length * line.width * line.height * line.pieces) / 1000000) * 100) / 100;
-                              const lineVolWeight = Math.round(((line.length * line.width * line.height * line.pieces) / 6000) * 10) / 10;
+                              const lineVolCbm = calculateCbm(line.length, line.width, line.height, line.pieces, lineUnit);
+                              const lineVolWeight = calculateVolumetricWeight(line.length, line.width, line.height, line.pieces, lineUnit);
 
                               return (
                                 <div
@@ -2592,30 +2239,30 @@ function App() {
                                       />
                                     </div>
                                     <div>
-                                      <label className="block text-[10px] text-[#64748b] mb-1 font-bold">Length (cm)</label>
+                                      <label className="block text-[10px] text-[#64748b] mb-1 font-bold">Length ({lineUnit})</label>
                                       <input
                                         type="number"
-                                        placeholder="cm"
+                                        placeholder={lineUnit}
                                         className="booking-input p-2 text-xs min-h-[40px]"
                                         value={line.length === 0 ? '' : line.length}
                                         onChange={(e) => handleUpdatePieceLine(line.id, 'length', Math.max(0, Number(e.target.value)))}
                                       />
                                     </div>
                                     <div>
-                                      <label className="block text-[10px] text-[#64748b] mb-1 font-bold">Width (cm)</label>
+                                      <label className="block text-[10px] text-[#64748b] mb-1 font-bold">Width ({lineUnit})</label>
                                       <input
                                         type="number"
-                                        placeholder="cm"
+                                        placeholder={lineUnit}
                                         className="booking-input p-2 text-xs min-h-[40px]"
                                         value={line.width === 0 ? '' : line.width}
                                         onChange={(e) => handleUpdatePieceLine(line.id, 'width', Math.max(0, Number(e.target.value)))}
                                       />
                                     </div>
                                     <div>
-                                      <label className="block text-[10px] text-[#64748b] mb-1 font-bold">Height (cm)</label>
+                                      <label className="block text-[10px] text-[#64748b] mb-1 font-bold">Height ({lineUnit})</label>
                                       <input
                                         type="number"
-                                        placeholder="cm"
+                                        placeholder={lineUnit}
                                         className="booking-input p-2 text-xs min-h-[40px]"
                                         value={line.height === 0 ? '' : line.height}
                                         onChange={(e) => handleUpdatePieceLine(line.id, 'height', Math.max(0, Number(e.target.value)))}
@@ -2956,7 +2603,6 @@ function App() {
                     <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
                       <button
                         onClick={() => {
-                          setIsContractUser(true);
                           scrollToSection('shipments');
                         }}
                         className="focus-ring rounded-full bg-[#101820] px-6 py-3 font-mulish text-[12px] font-extrabold text-white hover:bg-[#263740]"
@@ -3302,53 +2948,34 @@ function App() {
               </div>
 
               <div className="flex items-center gap-3">
-                {isContractUser ? (
-                  <>
-                    <div className="hidden sm:flex items-center gap-2 rounded-full border border-[#d4e9e3] bg-[#eef8f5] px-3.5 py-1.5 font-mulish text-xs font-extrabold text-[#176579]">
-                      <Building2 size={13} className="text-[#187e9c]" />
-                      <span className="truncate max-w-[150px]">{contractCompanyName}</span>
-                      <button
-                        onClick={() => setIsContractUser(false)}
-                        className="ml-1 text-[11px] font-bold text-[#908e92] hover:text-[#b44f47]"
-                        title="Lock Operations Console"
-                      >
-                        (Lock)
-                      </button>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setActiveStep(0);
-                        scrollToQuote();
-                      }}
-                      className="focus-ring rounded-full bg-[#101820] px-5 py-2.5 font-mulish text-xs font-extrabold text-white transition hover:bg-[#263740] flex items-center gap-2"
-                    >
-                      <Plus size={14} className="text-[#f2a63d]" />
-                      <span>Book New Shipment</span>
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      onClick={openTrackModal}
-                      className="focus-ring rounded-full border border-[#dfe5e7] bg-white px-4 py-2.5 font-mulish text-xs font-extrabold text-[#16243a] transition hover:bg-[#f4f7f8] flex items-center gap-1.5"
-                    >
-                      <Search size={13} className="text-[#187e9c]" />
-                      <span>Quick Track AWB</span>
-                    </button>
-                    <button
-                      onClick={openUidModal}
-                      className="focus-ring rounded-full bg-[#187e9c] px-5 py-2.5 font-mulish text-xs font-extrabold text-white transition hover:bg-[#156b84] flex items-center gap-1.5 shadow-sm"
-                    >
-                      <LockKeyhole size={13} />
-                      <span>Log in to Access</span>
-                    </button>
-                  </>
+                {isContractUser && (
+                  <div className="hidden sm:flex items-center gap-2 rounded-full border border-[#d4e9e3] bg-[#eef8f5] px-3.5 py-1.5 font-mulish text-xs font-extrabold text-[#176579]">
+                    <Building2 size={13} className="text-[#187e9c]" />
+                    <span className="truncate max-w-[150px]">{contractCompanyName}</span>
+                  </div>
                 )}
+                <button
+                  onClick={openTrackModal}
+                  className="focus-ring rounded-full border border-[#dfe5e7] bg-white px-4 py-2.5 font-mulish text-xs font-extrabold text-[#16243a] transition hover:bg-[#f4f7f8] flex items-center gap-1.5"
+                >
+                  <Search size={13} className="text-[#187e9c]" />
+                  <span>Quick Track AWB</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveStep(0);
+                    scrollToQuote();
+                  }}
+                  className="focus-ring rounded-full bg-[#101820] px-5 py-2.5 font-mulish text-xs font-extrabold text-white transition hover:bg-[#263740] flex items-center gap-2"
+                >
+                  <Plus size={14} className="text-[#f2a63d]" />
+                  <span>Book New Shipment</span>
+                </button>
               </div>
             </div>
 
-            {isContractUser ? (
-              <>
+            {/* Operations Console Container */}
+            <div className="space-y-6">
                 {/* KPI Stat Cards */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                   {[
@@ -3546,87 +3173,6 @@ function App() {
                     </div>
                   </div>
                 </div>
-              </>
-            ) : (
-              /* ================================================================
-                 LOGGED-OUT VIEW: SECURE OPERATIONS GATEWAY & PREVIEW PORTAL
-                 ================================================================ */
-              <div className="space-y-8">
-                {/* Secure Operations Gate Card */}
-                <div className="rounded-2xl border border-[#d4e9e3] bg-gradient-to-br from-[#f8fbfa] via-white to-[#f0f7f6] p-7 md:p-9 shadow-xs">
-                  <div className="grid gap-8 lg:grid-cols-[1.4fr_1fr] lg:items-center">
-                    <div>
-                      <div className="inline-flex items-center gap-2 rounded-full bg-[#eef8f5] px-3.5 py-1 font-mulish text-[11px] font-extrabold text-[#176579] mb-4">
-                        <ShieldCheck size={14} className="text-[#187e9c]" />
-                        <span>Corporate Operational Security &amp; Customs Confidentiality</span>
-                      </div>
-                      <h3 className="text-2xl font-bold tracking-[-.04em] text-[#101820] sm:text-3xl">
-                        Active Corridors &amp; Legal Document Vault
-                      </h3>
-                      <p className="mt-3 font-mulish text-sm leading-6 text-[#65686d]">
-                        To uphold IATA e-freight commercial privacy and Indian Customs EDI (ICES) data protection, live milestone feeds, airline cargo cutoff timers, Master e-AWBs, and GST Tax Invoices are restricted to authenticated corporate accounts.
-                      </p>
-
-                      <div className="mt-6 flex flex-wrap items-center gap-4 text-xs font-bold text-[#101820]">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle2 size={16} className="text-[#187e9c]" />
-                          <span>ICES EDI Customs Milestones</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <CheckCircle2 size={16} className="text-[#187e9c]" />
-                          <span>Encrypted Master e-AWB Vault</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <CheckCircle2 size={16} className="text-[#187e9c]" />
-                          <span>Direct Warehouse Cutoff Alerts</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl border border-[#dfe5e7] bg-white p-6 shadow-sm">
-                      <div className="flex items-center gap-3 pb-4 border-b border-[#eef2f3]">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#101820] text-[#f2a63d]">
-                          <LockKeyhole size={18} />
-                        </div>
-                        <div>
-                          <strong className="block text-sm text-[#101820]">Authenticate Operations Access</strong>
-                          <span className="font-mulish text-xs text-[#908e92]">Log in or track a single consignment</span>
-                        </div>
-                      </div>
-
-                      <div className="mt-5 space-y-3">
-                        <button
-                          onClick={openUidModal}
-                          className="focus-ring w-full flex items-center justify-center gap-2 rounded-xl bg-[#187e9c] px-5 py-3 font-mulish text-xs font-extrabold text-white transition hover:bg-[#156b84] shadow-sm"
-                          data-testid="button-console-login"
-                        >
-                          <LockKeyhole size={14} />
-                          <span>Log in with Corporate UID</span>
-                        </button>
-
-                        <button
-                          onClick={openTrackModal}
-                          className="focus-ring w-full flex items-center justify-center gap-2 rounded-xl border border-[#dfe5e7] bg-white px-5 py-2.5 font-mulish text-xs font-extrabold text-[#16243a] transition hover:bg-[#f4f7f8]"
-                          data-testid="button-console-quick-track"
-                        >
-                          <Search size={14} className="text-[#187e9c]" />
-                          <span>Quick Track Single AWB</span>
-                        </button>
-
-                        <div className="pt-2 text-center">
-                          <button
-                            onClick={() => setIsContractUser(true)}
-                            className="inline-flex items-center gap-1.5 font-mulish text-xs font-bold text-[#187e9c] hover:underline"
-                            data-testid="button-console-demo"
-                          >
-                            <Sparkles size={13} className="text-[#f2a63d]" />
-                            <span>Explore Sample Operations Console (Demo Mode) &rarr;</span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
 
                 {/* 3 Operational Capability Pillars */}
                 <div className="grid gap-5 sm:grid-cols-3">
@@ -3666,87 +3212,7 @@ function App() {
                     </div>
                   ))}
                 </div>
-
-                {/* Masked High-Fidelity Console Preview Teaser */}
-                <div className="relative rounded-2xl border border-[#dfe5e7] bg-white p-6 shadow-xs overflow-hidden">
-                  {/* Subtle Masked Content in Background */}
-                  <div className="pointer-events-none select-none opacity-40 blur-[1px]">
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                      {[
-                        { label: 'Active Shipments', val: '3', sub: 'Air export corridors' },
-                        { label: 'AWB Pending', val: '1', sub: 'Within 2h SLA window' },
-                        { label: 'In Transit', val: '1', sub: 'DEL → LHR (AI 161)' },
-                        { label: 'Customs Cleared', val: '1', sub: 'LEO Endorsed' },
-                      ].map((stat, i) => (
-                        <div key={i} className="rounded-2xl border border-[#dfe5e7] bg-[#f8fbfa] p-4">
-                          <span className="font-mulish text-[10px] font-extrabold uppercase text-[#908e92]">{stat.label}</span>
-                          <div className="text-xl font-black text-[#101820] mt-1">{stat.val}</div>
-                          <span className="font-mulish text-[11px] text-[#556972] mt-0.5 block">{stat.sub}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="grid gap-6 lg:grid-cols-[1.1fr_1.3fr]">
-                      <div className="rounded-xl border border-[#dfe5e7] p-4 bg-[#fafbfb]">
-                        <div className="flex items-center justify-between mb-3 border-b border-[#eef2f3] pb-2">
-                          <span className="font-extrabold text-sm text-[#101820]">Active Bookings (Masked)</span>
-                          <span className="font-mulish text-[10px] text-[#908e92]">Protected Vault</span>
-                        </div>
-                        <div className="space-y-2">
-                          <div className="rounded-lg border border-[#187e9c] bg-[#eef8f5] p-3 text-xs">
-                            <span className="font-black text-[#187e9c]">JFLL-AE-2026-•••••</span>
-                            <span className="block font-bold text-[#101820] mt-1">BOM → DXB · Emirates SkyCargo</span>
-                          </div>
-                          <div className="rounded-lg border border-[#dfe5e7] bg-white p-3 text-xs">
-                            <span className="font-black text-[#908e92]">JFLL-AE-2026-•••••</span>
-                            <span className="block font-bold text-[#101820] mt-1">DEL → LHR · Air India Cargo</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="rounded-xl border border-[#dfe5e7] p-4 bg-[#fafbfb]">
-                        <div className="flex items-center justify-between mb-3 border-b border-[#eef2f3] pb-2">
-                          <span className="font-extrabold text-sm text-[#101820]">Live Corridors &amp; Milestones</span>
-                          <span className="font-mulish text-[10px] text-[#187e9c] bg-white px-2 py-0.5 rounded border border-[#d4e9e3]">AWB 176-••••-4921</span>
-                        </div>
-                        <div className="space-y-2 font-mulish text-xs text-[#65686d]">
-                          <div className="flex items-center gap-2"><Check size={12} className="text-[#187e9c]" /> Booking Confirmed</div>
-                          <div className="flex items-center gap-2"><Check size={12} className="text-[#187e9c]" /> AWB Verified &amp; Master Issued</div>
-                          <div className="flex items-center gap-2 text-[#f2a63d] font-bold"><Clock3 size={12} /> Customs LEO Handover In-Progress</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Frosted Glass Overlay CTA */}
-                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/75 backdrop-blur-[2px] p-6 text-center">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#101820] text-[#f2a63d] shadow-md mb-3">
-                      <LockKeyhole size={22} />
-                    </div>
-                    <h4 className="text-lg font-extrabold text-[#101820]">
-                      Operations Console Locked for Unauthenticated Visitors
-                    </h4>
-                    <p className="mt-1.5 max-w-[500px] font-mulish text-xs leading-5 text-[#65686d]">
-                      Log in with your corporate credentials to view real-time cargo cutoffs, monitor live Customs LEO status, and generate certified MAWB / GST invoices.
-                    </p>
-                    <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-                      <button
-                        onClick={openUidModal}
-                        className="focus-ring rounded-full bg-[#187e9c] px-6 py-2.5 font-mulish text-xs font-extrabold text-white transition hover:bg-[#156b84] shadow-sm"
-                      >
-                        Log in with Corporate UID
-                      </button>
-                      <button
-                        onClick={() => setIsContractUser(true)}
-                        className="focus-ring rounded-full border border-[#c7c6c8] bg-white px-5 py-2.5 font-mulish text-xs font-extrabold text-[#101820] hover:bg-[#f4f7f8]"
-                      >
-                        Explore in Demo Mode
-                      </button>
-                    </div>
-                  </div>
-                </div>
               </div>
-            )}
           </div>
         </section>
 
@@ -3979,25 +3445,12 @@ function App() {
       {/* ====================================================================
           MODULAR APPLICATION MODALS
           ==================================================================== */}
-      <CorporateUidModal
-        isOpen={isUidModalOpen}
-        onClose={() => setIsUidModalOpen(false)}
-        onApply={(uid, comp) => {
-          setContractUidInput(uid);
-          setContractCompanyName(comp);
-          setIsContractUser(true);
-        }}
-        initialUid={contractUidInput}
-        initialCompany={contractCompanyName}
-      />
-
       <QuickTrackModal
         isOpen={isTrackModalOpen}
         onClose={() => setIsTrackModalOpen(false)}
         shipmentsList={shipmentsList}
         onSelectShipment={(s) => {
           setSelectedShipment(s);
-          setIsContractUser(true);
           scrollToSection('shipments');
         }}
       />

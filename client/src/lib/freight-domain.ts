@@ -194,6 +194,66 @@ export function getFlightSchedule(
 }
 
 /**
+ * Converts linear dimensions from supported unit to centimeters (cm).
+ */
+export type DimensionUnit = 'cm' | 'in' | 'm' | 'mm';
+
+export function convertToCm(value: number, unit: DimensionUnit = 'cm'): number {
+  if (!value || isNaN(value) || value <= 0) return 0;
+  switch (unit) {
+    case 'in':
+      return value * 2.54;
+    case 'm':
+      return value * 100;
+    case 'mm':
+      return value / 10;
+    case 'cm':
+    default:
+      return value;
+  }
+}
+
+/**
+ * Calculates volumetric weight in kg according to IATA standard divisor (6,000 cm³/kg).
+ */
+export function calculateVolumetricWeight(
+  length: number,
+  width: number,
+  height: number,
+  pieces: number = 1,
+  unit: DimensionUnit = 'cm'
+): number {
+  const l = convertToCm(length, unit);
+  const w = convertToCm(width, unit);
+  const h = convertToCm(height, unit);
+  const pcs = Math.max(1, pieces || 1);
+  if (l > 0 && w > 0 && h > 0) {
+    return Math.round(((l * w * h * pcs) / 6000) * 10) / 10;
+  }
+  return 0;
+}
+
+/**
+ * Calculates volume in CBM (m³) from dimensions.
+ */
+export function calculateCbm(
+  length: number,
+  width: number,
+  height: number,
+  pieces: number = 1,
+  unit: DimensionUnit = 'cm'
+): number {
+  const l = convertToCm(length, unit);
+  const w = convertToCm(width, unit);
+  const h = convertToCm(height, unit);
+  const pcs = Math.max(1, pieces || 1);
+  if (l > 0 && w > 0 && h > 0) {
+    return Math.round(((l * w * h * pcs) / 1000000) * 1000) / 1000;
+  }
+  return 0;
+}
+
+/**
  * Formats an integer amount as Indian Rupee string (e.g. ₹1,25,000)
  */
 export function formatInr(val: number): string {

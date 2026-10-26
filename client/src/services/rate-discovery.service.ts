@@ -1,4 +1,3 @@
-import consolidatedData from '../data/consolidated-rates.json';
 import {
   AIRLINE_PROPER_NAMES,
   CARRIER_CODE_MAP,
@@ -6,6 +5,15 @@ import {
   ROUTE_SCHEDULES,
   getFlightSchedule,
 } from '../lib/freight-domain';
+
+// Lazy loader for offline rates sheet (Finding 11: eliminates 114KB upfront bundle cost)
+let offlineRatesPromise: Promise<any[]> | null = null;
+async function getOfflineRatesData(): Promise<any[]> {
+  if (!offlineRatesPromise) {
+    offlineRatesPromise = import('../data/consolidated-rates.json').then((m) => (m.default || m) as any[]);
+  }
+  return offlineRatesPromise;
+}
 
 export {
   AIRLINE_PROPER_NAMES,
@@ -168,7 +176,7 @@ export async function fetchLiveOrCalculatedRates(input: QuoteInput): Promise<Quo
   }
 
   // 2. High-performance offline calculation directly from consolidated JSON
-  return calculateOfflineRates(input, chargeableWeight);
+  return await calculateOfflineRates(input, chargeableWeight);
 }
 
 /**
@@ -217,7 +225,8 @@ export async function submitHeavyCargoInquiry(
   }
 }
 
-function calculateOfflineRates(input: QuoteInput, cw: number) {
+async function calculateOfflineRates(input: QuoteInput, cw: number) {
+  const consolidatedData = await getOfflineRatesData();
   const destUpper = input.destination.toUpperCase();
   const origUpper = input.origin.toUpperCase();
 
@@ -293,13 +302,13 @@ function calculateOfflineRates(input: QuoteInput, cw: number) {
     const ssc = Math.round(Math.max(effectiveSsc * cw, Number(r.ssc_min) || 350));
     const fuelSecurity = fsc + ssc;
 
-    const xray = Math.round(Math.max((r.xray_per_kg || 0) * cw, r.xray_min || 0));
-    const misc = Math.round(Math.max((r.misc_per_kg || 0) * cw, r.misc_min || 0));
-    const ctg = Math.round(Math.max((r.ctg_per_kg || 0) * cw, r.ctg_min || 0));
-    const originTHC = xray + misc + ctg + Math.max(500, Math.round(cw * 1.5)) + commodityFee;
+    const xray = Math.round(Math.max((Number(r.xray_per_kg) || 3.5) * cw, Number(r.xray_min) || 0));
+    const misc = Math.round(Math.max((Number(r.misc_per_kg) || 2) * cw, Number(r.misc_min) || 0));
+    const ctg = Math.round(Math.max((Number(r.ctg_per_kg) || 0) * cw, Number(r.ctg_min) || 0));
+    const originTHC = xray + misc + ctg + commodityFee;
 
-    const awbFee = r.awb_fee || 350;
-    const amsFee = r.ams_mawb || 0;
+    const awbFee = Number(r.awb_fee) || 800;
+    const amsFee = Number(r.ams_mawb) || 0;
     const subtotal = baseFreight + fuelSecurity + originTHC + awbFee + amsFee;
     const tax = Math.round(subtotal * 0.05);
     const baseTotal = subtotal + tax;
@@ -330,7 +339,7 @@ function calculateOfflineRates(input: QuoteInput, cw: number) {
       arrival: schedule.arrival,
       transit: schedule.transit,
       total,
-      contractTotal: Math.round(total * 0.85),
+      contractTotal: Math.round(total * 0.92),
       base: baseFreight,
       fuelSecurity,
       originTHC,
