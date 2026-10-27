@@ -79,7 +79,7 @@ Below is a complete breakdown of every piece of information we collect from cust
 
 ---
 
-### 3.1 Member Identification (Login / Header)
+### 3.1 Member Identification (Partner Linkage / Header)
 
 | Field Name | Code / JSON Key | Required? | Description | Example |
 | :--- | :--- | :---: | :--- | :--- |

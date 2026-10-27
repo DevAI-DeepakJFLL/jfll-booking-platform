@@ -37,7 +37,7 @@ The Phase 1 Air Export flow consists of four primary stages[cite: 1]:
 ### Stage 2: Quotation & Comparison Engine
 - **Live Carrier Rates:** Display options with filters (Recommended, Cheapest, Fastest, Direct Only)[cite: 1].
 - **Transparent Breakdown:** Displays actual vs. volumetric weight, total chargeable weight, flight cutoffs, and itemized surcharges[cite: 1].
-- **UID Contract Pricing:** Seamless login prompt for contract customers to fetch negotiated rates[cite: 1].
+- **UID Contract Pricing:** Direct partner verification (IEC/GSTIN linkage) without forced login walls or passwords.
 
 ### Stage 3: Guided 3-Step Booking Flow
 1. **Shipper & Consignee Details:** Recaptures company names, pickup/delivery addresses, and contact info for reuse on downstream legal documents[cite: 1].
