@@ -89,11 +89,14 @@ Booking-Experience-Hub/
 * **Frictionless Compliance & Assisted Customs**:
   * **HS Code Assistance**: Harmonized System (HS) Code is optional with a 1-click helper (*"Don't have HS Code? Let JFLL classify"*). Casual and first-time shippers can book immediately while JFLL customs brokers classify the tariff from commodity descriptions.
   * **Optional DGFT IEC & GSTIN**: Exporter IEC and GSTIN fields are non-blocking with automated assistance fallbacks (`JFLL-ASSISTED`), accommodating non-commercial cargo, samples, and overseas entities without Indian registrations.
+  * **IATA UN Identification Number for Hazmat**: The UN Number field is only displayed when *"Dangerous Goods"* is selected. It is non-blocking and skippable with a 1-click helper (*"Don't have UN Number? Let JFLL identify"*); unclassified shipments are routed to JFLL DGR specialists.
 * **Zero External Component Dependencies**: Form controls, custom dropdowns, and date pickers use lightweight native SVG icons (Lucide) and Tailwind CSS 4 transitions without third-party widget bloat.
 
 ### 5. Enterprise Security & Dual-Recipient Email Service
 * **Zero npm Dependencies**: The backend (`server/`) is written in 100% native Node.js ESM. It requires 0 external npm packages, packaging into a lightweight ~50 KB bundle.
-* **Dual-Recipient Email Delivery**: Automated booking confirmations and heavy cargo spot RFQs are dispatched via Google Cloud OAuth2 Gmail API or AWS SES to **both** the internal operations desk (`deepak.naidu@jfll.com`) and the customer / order placer (`booking.shipperEmail`).
+* **Dual-Recipient & Hazmat-Guarded Email Delivery**:
+  * **General Cargo**: Automated booking confirmations are dispatched via Google Cloud OAuth2 Gmail API or AWS SES to **both** the internal operations desk (`deepak.naidu@jfll.com`) and the customer / order placer (`booking.shipperEmail`).
+  * **Dangerous Goods / UN Cargo**: When a UN Number or Dangerous Goods classification is captured, notification is dispatched **only to `deepak.naidu@jfll.com`** (customer email is suppressed pending hazardous checklist approval).
 * **Native MIME Email Service**: Email generation uses a built-in RFC 2822 multipart/alternative MIME compiler with automated HTML entity escaping to prevent template injection.
 * **Streaming Payload Bounds**: All incoming request bodies are capped at 64 KB using bounded streaming buffers to prevent memory exhaustion and DoS attacks.
 * **Input Sanitization**: Incoming strings are sanitized to strip control characters and HTML tags.

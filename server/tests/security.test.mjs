@@ -175,3 +175,19 @@ test('validateBookingInput preserves hasWorkedWithJfll and jfllIdentifier partne
   assert.equal(result.data.hasWorkedWithJfll, true);
   assert.equal(result.data.jfllIdentifier, 'JFLL-MUM-8921');
 });
+
+test('validateBookingInput preserves dgUnNumber for hazardous cargo', () => {
+  const result = validateBookingInput({
+    origin: 'BOM',
+    destination: 'DXB',
+    chargeableWeight: 100,
+    totalAmount: 18000,
+    shipperName: 'Chemical Shipper Ltd',
+    consigneeName: 'Global Receiver LLC',
+    cargoCategory: 'Dangerous goods',
+    dgUnNumber: 'UN 3481 Class 9',
+  });
+
+  assert.equal(result.valid, true);
+  assert.equal(result.data.dgUnNumber, 'UN 3481 Class 9');
+});

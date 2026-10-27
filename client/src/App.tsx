@@ -775,8 +775,7 @@ function App() {
         updateBooking('hsCode', 'Pending Classification (JFLL Customs Desk)');
       }
       if (quote.cargoType === 'Dangerous goods' && (!booking.dgUnNumber || !booking.dgUnNumber.trim())) {
-        setBookingError('Please specify the IATA UN Identification Number for Dangerous Goods (e.g., UN 3481).');
-        return;
+        updateBooking('dgUnNumber', 'Pending Classification (JFLL Hazmat Desk)');
       }
     }
     setBookingSubStep((prev) => Math.min(2, prev + 1));
@@ -905,6 +904,7 @@ function App() {
           commodity: booking.cargoDescription || quote.cargoType,
           cargoDescription: booking.cargoDescription,
           hsCode: booking.hsCode || 'Pending Classification (JFLL Customs Desk)',
+          dgUnNumber: booking.dgUnNumber || (quote.cargoType === 'Dangerous goods' ? 'Pending Classification (JFLL Hazmat Desk)' : undefined),
           cargoCategory: quote.cargoType,
           packagingType: booking.packagingType,
           incoterm: booking.incoterm,
@@ -2359,14 +2359,29 @@ function App() {
                           )}
 
                           {quote.cargoType === 'Dangerous goods' && (
-                            <div className="md:col-span-2">
-                              <Field
-                                label="UN Identification Number (e.g. UN 3481) *"
+                            <div className="md:col-span-2 space-y-1">
+                              <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+                                <label className="font-mulish block text-[10px] sm:text-[11px] font-extrabold uppercase tracking-normal sm:tracking-[.08em] text-[#555c61]">
+                                  IATA UN Identification Number (Optional)
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={() => updateBooking('dgUnNumber', 'Pending Classification (JFLL Hazmat Desk)')}
+                                  className="font-mulish text-[11px] font-bold text-[#187e9c] hover:underline cursor-pointer"
+                                >
+                                  Don&apos;t have UN Number? Let JFLL identify
+                                </button>
+                              </div>
+                              <input
+                                data-testid="input-un-number"
+                                className="booking-input text-sm font-medium text-[#101820] min-h-[48px]"
                                 value={booking.dgUnNumber || ''}
-                                onChange={(val) => updateBooking('dgUnNumber', val)}
-                                placeholder="e.g. UN 3481 Class 9 Lithium Ion Batteries"
-                                helper="Mandatory IATA DGR classification · RAC fee applicable"
+                                onChange={(e) => updateBooking('dgUnNumber', e.target.value)}
+                                placeholder="e.g. UN 3481 (or leave blank if unknown)"
                               />
+                              <span className="font-mulish mt-1.5 block text-[11px] text-[#908e92]">
+                                Only required for Dangerous Goods. Skip or leave blank if unknown — our IATA certified DGR desk will determine it from your Material Safety Data Sheet (MSDS).
+                              </span>
                             </div>
                           )}
                         </div>

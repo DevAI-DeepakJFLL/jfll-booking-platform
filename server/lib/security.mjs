@@ -302,6 +302,7 @@ export function validateBookingInput(payload) {
       consigneeAddress: sanitizeString(payload.consigneeAddress, 200),
       commodity: sanitizeString(payload.commodity || payload.cargoDescription, 120) || 'Air Freight Cargo',
       hsCode: sanitizeString(payload.hsCode, 40) || 'Pending Classification (JFLL Customs Desk)',
+      dgUnNumber: sanitizeString(payload.dgUnNumber, 60) || undefined,
       cargoCategory: sanitizeString(payload.cargoCategory || payload.cargoType, 50) || 'General cargo',
       packagingType: sanitizeString(payload.packagingType, 50) || 'Corrugated Cartons',
       incoterm: sanitizeString(payload.incoterm, 10) || 'CIP',

@@ -200,6 +200,7 @@ export function buildBookingEmailText(booking) {
   const consigneeAddress = booking.consigneeAddress || destination;
   const commodity = booking.commodity || booking.cargoDescription || 'General Cargo';
   const hsCode = booking.hsCode || 'Pending Classification (JFLL Customs Desk)';
+  const dgUnNumber = booking.dgUnNumber || (booking.cargoCategory === 'Dangerous goods' ? 'Pending Classification (JFLL Hazmat Desk)' : '');
   const packagingType = booking.packagingType || 'Cartons';
   const incoterm = booking.incoterm || 'CIP';
   const pieces = booking.pieces || '—';
@@ -230,6 +231,7 @@ export function buildBookingEmailText(booking) {
     '------------------------------------------------------------',
     `Commodity         : ${commodity}`,
     `HS Code           : ${hsCode}`,
+    ...(dgUnNumber ? [`IATA UN Number   : ${dgUnNumber} (Dangerous Goods / DGR)`] : []),
     `Packaging Type    : ${packagingType}`,
     `Incoterm          : ${incoterm}`,
     `Total Pieces      : ${pieces}`,
@@ -384,10 +386,20 @@ export async function sendBookingConfirmationEmail(booking) {
   const primaryAdmin = process.env.NOTIFICATION_EMAIL_TO || DEFAULT_NOTIFICATION_TO;
   const orderPlacer = (booking.shipperEmail || booking.email || booking.orderPlacerEmail || '').trim();
 
-  // Combine both recipients, avoiding duplicates
-  const recipients = [primaryAdmin];
-  if (orderPlacer && orderPlacer.includes('@') && orderPlacer.toLowerCase() !== primaryAdmin.toLowerCase()) {
-    recipients.push(orderPlacer);
+  // If UN Identification Number is captured or cargo is Dangerous Goods, notify ONLY deepak.naidu@jfll.com (not the customer)
+  const isUnCaptured = Boolean(booking.dgUnNumber && booking.dgUnNumber.trim());
+  const isDangerousGoods = (booking.cargoCategory || '').toLowerCase().includes('dangerous') || isUnCaptured;
+
+  let recipients;
+  if (isUnCaptured || isDangerousGoods) {
+    // Notify only internal operations desk for dangerous goods / UN review
+    recipients = [primaryAdmin];
+  } else {
+    // Standard dual notification for general/commercial cargo
+    recipients = [primaryAdmin];
+    if (orderPlacer && orderPlacer.includes('@') && orderPlacer.toLowerCase() !== primaryAdmin.toLowerCase()) {
+      recipients.push(orderPlacer);
+    }
   }
   const to = recipients.join(', ');
 
@@ -396,7 +408,8 @@ export async function sendBookingConfirmationEmail(booking) {
 
   const weight = booking.chargeableWeight || booking.weight || 0;
   const isHeavy = weight > 500;
-  const subjectTag = isHeavy ? '[Heavy Cargo > 500kg] ' : '';
+  const dgTag = isUnCaptured || isDangerousGoods ? `[DGR / UN: ${booking.dgUnNumber || 'Pending Classification'}] ` : '';
+  const subjectTag = `${isHeavy ? '[Heavy Cargo > 500kg] ' : ''}${dgTag}`;
   const subject = `${subjectTag}[Booking Confirmed] ${booking.reference || 'JFLL-AE'} - ${booking.origin || 'BOM'} to ${booking.destination || 'DXB'} (${weight} kg - ${booking.carrier || 'Air Cargo'})`;
 
   const text = buildBookingEmailText(booking);
@@ -416,7 +429,8 @@ export async function sendBookingConfirmationEmail(booking) {
         html,
         text,
       });
-      console.log(`[EmailService] Simple text booking email (${weight} kg) dispatched via Gmail API to [${to}] (MessageID: ${result.id})`);
+      const routingNote = isUnCaptured || isDangerousGoods ? ' (Operations Desk ONLY - Customer Notification Suppressed)' : '';
+      console.log(`[EmailService] Simple text booking email (${weight} kg) dispatched via Gmail API to [${to}]${routingNote} (MessageID: ${result.id})`);
       return { success: true, messageId: result.id, recipients: to };
     } catch (err) {
       console.error('[EmailService] Gmail REST API dispatch failed:', err.message || err);
