@@ -411,7 +411,7 @@ export const HeavyCargoInquiry: React.FC<HeavyCargoInquiryProps> = ({
                 value={formData.contactName}
                 onChange={handleInputChange}
                 placeholder="e.g. Rajesh Kumar"
-                className="w-full rounded-xl border border-[#c5d0d2] bg-white px-4 py-2.5 font-mulish text-xs text-[#101820] placeholder-[#a0a4a8] transition outline-none focus:outline-none focus:border-[#187e9c] focus:ring-2 focus:ring-[#187e9c]/20"
+                className="w-full min-h-[48px] rounded-xl border border-[#c5d0d2] bg-white px-4 py-2.5 font-mulish text-sm text-[#101820] placeholder-[#a0a4a8] transition outline-none focus:outline-none focus:border-[#187e9c] focus:ring-2 focus:ring-[#187e9c]/20"
               />
             </div>
 
@@ -431,7 +431,7 @@ export const HeavyCargoInquiry: React.FC<HeavyCargoInquiryProps> = ({
                 value={formData.companyName}
                 onChange={handleInputChange}
                 placeholder="e.g. Apex Exports India Pvt Ltd"
-                className="w-full rounded-xl border border-[#c5d0d2] bg-white px-4 py-2.5 font-mulish text-xs text-[#101820] placeholder-[#a0a4a8] transition outline-none focus:outline-none focus:border-[#187e9c] focus:ring-2 focus:ring-[#187e9c]/20"
+                className="w-full min-h-[48px] rounded-xl border border-[#c5d0d2] bg-white px-4 py-2.5 font-mulish text-sm text-[#101820] placeholder-[#a0a4a8] transition outline-none focus:outline-none focus:border-[#187e9c] focus:ring-2 focus:ring-[#187e9c]/20"
               />
             </div>
 
@@ -451,7 +451,7 @@ export const HeavyCargoInquiry: React.FC<HeavyCargoInquiryProps> = ({
                 value={formData.email}
                 onChange={handleInputChange}
                 placeholder="e.g. rajesh@apexexports.com"
-                className="w-full rounded-xl border border-[#c5d0d2] bg-white px-4 py-2.5 font-mulish text-xs text-[#101820] placeholder-[#a0a4a8] transition outline-none focus:outline-none focus:border-[#187e9c] focus:ring-2 focus:ring-[#187e9c]/20"
+                className="w-full min-h-[48px] rounded-xl border border-[#c5d0d2] bg-white px-4 py-2.5 font-mulish text-sm text-[#101820] placeholder-[#a0a4a8] transition outline-none focus:outline-none focus:border-[#187e9c] focus:ring-2 focus:ring-[#187e9c]/20"
               />
             </div>
 
@@ -471,7 +471,7 @@ export const HeavyCargoInquiry: React.FC<HeavyCargoInquiryProps> = ({
                 value={formData.phone}
                 onChange={handleInputChange}
                 placeholder="e.g. +91 98201 23456"
-                className="w-full rounded-xl border border-[#c5d0d2] bg-white px-4 py-2.5 font-mulish text-xs text-[#101820] placeholder-[#a0a4a8] transition outline-none focus:outline-none focus:border-[#187e9c] focus:ring-2 focus:ring-[#187e9c]/20"
+                className="w-full min-h-[48px] rounded-xl border border-[#c5d0d2] bg-white px-4 py-2.5 font-mulish text-sm text-[#101820] placeholder-[#a0a4a8] transition outline-none focus:outline-none focus:border-[#187e9c] focus:ring-2 focus:ring-[#187e9c]/20"
               />
             </div>
 
@@ -491,7 +491,7 @@ export const HeavyCargoInquiry: React.FC<HeavyCargoInquiryProps> = ({
                 onChange={handleInputChange}
                 placeholder="10-digit DGFT Importer-Exporter Code"
                 maxLength={20}
-                className="w-full rounded-xl border border-[#c5d0d2] bg-white px-4 py-2.5 font-mulish text-xs text-[#101820] placeholder-[#a0a4a8] transition outline-none focus:outline-none focus:border-[#187e9c] focus:ring-2 focus:ring-[#187e9c]/20"
+                className="w-full min-h-[48px] rounded-xl border border-[#c5d0d2] bg-white px-4 py-2.5 font-mulish text-sm text-[#101820] placeholder-[#a0a4a8] transition outline-none focus:outline-none focus:border-[#187e9c] focus:ring-2 focus:ring-[#187e9c]/20"
               />
             </div>
 
@@ -508,7 +508,7 @@ export const HeavyCargoInquiry: React.FC<HeavyCargoInquiryProps> = ({
                 type="text"
                 readOnly
                 value={quote.readyDate || 'Not specified'}
-                className="w-full rounded-xl border border-[#dfe5e7] bg-[#f8fbfa] px-4 py-2.5 font-mulish text-xs text-[#505459] cursor-not-allowed"
+                className="w-full min-h-[48px] rounded-xl border border-[#dfe5e7] bg-[#f8fbfa] px-4 py-2.5 font-mulish text-sm text-[#505459] cursor-not-allowed"
               />
             </div>
           </div>

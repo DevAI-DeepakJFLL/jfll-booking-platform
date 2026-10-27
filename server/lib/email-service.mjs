@@ -4,8 +4,50 @@
  * Formatted in a simple, clean, text-based format without heavy colors or UI templates.
  */
 
+import fs from 'fs';
+import path from 'path';
+
 let cachedAccessToken = null;
 let tokenExpiresAt = 0;
+
+const DEFAULT_NOTIFICATION_TO = 'deepak.naidu@jfll.com';
+const DEFAULT_NOTIFICATION_FROM = '"Jet Freight Booking Hub" <deepaknaidu1818@gmail.com>';
+
+/**
+ * Automatically loads .env file if environment variables are not yet populated.
+ */
+function tryLoadEnv() {
+  if (process.env.GMAIL_CLIENT_ID && process.env.GMAIL_CLIENT_SECRET) return;
+
+  const envCandidates = [
+    path.resolve(process.cwd(), 'server/.env'),
+    path.resolve(process.cwd(), '.env'),
+    new URL('../.env', import.meta.url).pathname,
+    new URL('../../.env', import.meta.url).pathname,
+  ];
+
+  for (const envPath of envCandidates) {
+    if (fs.existsSync(envPath)) {
+      try {
+        const text = fs.readFileSync(envPath, 'utf-8');
+        for (const line of text.split('\n')) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith('#')) continue;
+          const eq = trimmed.indexOf('=');
+          if (eq !== -1) {
+            const k = trimmed.slice(0, eq).trim();
+            const v = trimmed.slice(eq + 1).trim().replace(/^["']|["']$/g, '');
+            if (!process.env[k]) {
+              process.env[k] = v;
+            }
+          }
+        }
+        break;
+      } catch (_) {}
+    }
+  }
+}
+tryLoadEnv();
 
 /**
  * Compiles a 100% compliant RFC 2822 multipart/alternative MIME message buffer
@@ -43,6 +85,7 @@ function buildMimeMessage({ from, to, replyTo, subject, text, html }) {
  * Obtains an active OAuth2 access token, reusing cached token if still valid.
  */
 async function getGoogleAccessToken() {
+  tryLoadEnv();
   const clientId = process.env.GMAIL_CLIENT_ID;
   const clientSecret = process.env.GMAIL_CLIENT_SECRET;
   const refreshToken = process.env.GMAIL_REFRESH_TOKEN;
@@ -156,6 +199,7 @@ export function buildBookingEmailText(booking) {
   const consigneePhone = booking.consigneePhone || 'N/A';
   const consigneeAddress = booking.consigneeAddress || destination;
   const commodity = booking.commodity || booking.cargoDescription || 'General Cargo';
+  const hsCode = booking.hsCode || 'Pending Classification (JFLL Customs Desk)';
   const packagingType = booking.packagingType || 'Cartons';
   const incoterm = booking.incoterm || 'CIP';
   const pieces = booking.pieces || '—';
@@ -185,6 +229,7 @@ export function buildBookingEmailText(booking) {
     'CARGO SPECIFICATIONS',
     '------------------------------------------------------------',
     `Commodity         : ${commodity}`,
+    `HS Code           : ${hsCode}`,
     `Packaging Type    : ${packagingType}`,
     `Incoterm          : ${incoterm}`,
     `Total Pieces      : ${pieces}`,
@@ -331,12 +376,23 @@ export function buildHeavyCargoEmailSimpleHtml(inquiry) {
 }
 
 /**
- * Sends a booking confirmation email to deepak.naidu@jfll.com in simple text format.
+ * Sends a booking confirmation email to BOTH the order placer and deepak.naidu@jfll.com in simple text format.
  */
 export async function sendBookingConfirmationEmail(booking) {
-  const to = process.env.NOTIFICATION_EMAIL_TO || 'deepak.naidu@jfll.com';
-  const from = process.env.NOTIFICATION_EMAIL_FROM || 'Jet Freight Booking Hub <deepaknaidu1818@gmail.com>';
-  const replyTo = booking.shipperEmail || 'deepaknaidu1818@gmail.com';
+  tryLoadEnv();
+
+  const primaryAdmin = process.env.NOTIFICATION_EMAIL_TO || DEFAULT_NOTIFICATION_TO;
+  const orderPlacer = (booking.shipperEmail || booking.email || booking.orderPlacerEmail || '').trim();
+
+  // Combine both recipients, avoiding duplicates
+  const recipients = [primaryAdmin];
+  if (orderPlacer && orderPlacer.includes('@') && orderPlacer.toLowerCase() !== primaryAdmin.toLowerCase()) {
+    recipients.push(orderPlacer);
+  }
+  const to = recipients.join(', ');
+
+  const from = process.env.NOTIFICATION_EMAIL_FROM || DEFAULT_NOTIFICATION_FROM;
+  const replyTo = orderPlacer || primaryAdmin;
 
   const weight = booking.chargeableWeight || booking.weight || 0;
   const isHeavy = weight > 500;
@@ -346,7 +402,11 @@ export async function sendBookingConfirmationEmail(booking) {
   const text = buildBookingEmailText(booking);
   const html = buildBookingEmailSimpleHtml(booking);
 
-  if (process.env.GMAIL_CLIENT_ID && process.env.GMAIL_CLIENT_SECRET && process.env.GMAIL_REFRESH_TOKEN) {
+  const clientId = process.env.GMAIL_CLIENT_ID;
+  const clientSecret = process.env.GMAIL_CLIENT_SECRET;
+  const refreshToken = process.env.GMAIL_REFRESH_TOKEN;
+
+  if (clientId && clientSecret && refreshToken) {
     try {
       const result = await sendViaGmailApi({
         from,
@@ -356,25 +416,36 @@ export async function sendBookingConfirmationEmail(booking) {
         html,
         text,
       });
-      console.log(`[EmailService] Simple text booking email (${weight} kg) dispatched via Gmail API to ${to} (MessageID: ${result.id})`);
-      return { success: true, messageId: result.id };
+      console.log(`[EmailService] Simple text booking email (${weight} kg) dispatched via Gmail API to [${to}] (MessageID: ${result.id})`);
+      return { success: true, messageId: result.id, recipients: to };
     } catch (err) {
       console.error('[EmailService] Gmail REST API dispatch failed:', err.message || err);
       return { success: false, error: err.message || 'Gmail API send error' };
     }
   }
 
-  console.warn('[EmailService] No Google Cloud OAuth credentials found in environment. Skipping email dispatch.');
+  console.warn('[EmailService] No Google Cloud OAuth credentials found. Skipping email dispatch.');
   return { success: false, skipped: true, reason: 'No email credentials configured' };
 }
 
 /**
- * Sends a Heavy Cargo Quote Request (> 500 kg) email to deepak.naidu@jfll.com in simple text format.
+ * Sends a Heavy Cargo Quote Request (> 500 kg) email to BOTH the customer and deepak.naidu@jfll.com in simple text format.
  */
 export async function sendHeavyCargoInquiryEmail(inquiry) {
-  const to = process.env.NOTIFICATION_EMAIL_TO || 'deepak.naidu@jfll.com';
-  const from = process.env.NOTIFICATION_EMAIL_FROM || 'Jet Freight Pricing Desk <deepaknaidu1818@gmail.com>';
-  const replyTo = inquiry.email || 'deepaknaidu1818@gmail.com';
+  tryLoadEnv();
+
+  const primaryAdmin = process.env.NOTIFICATION_EMAIL_TO || DEFAULT_NOTIFICATION_TO;
+  const customerEmail = (inquiry.email || inquiry.contactEmail || '').trim();
+
+  // Combine both recipients, avoiding duplicates
+  const recipients = [primaryAdmin];
+  if (customerEmail && customerEmail.includes('@') && customerEmail.toLowerCase() !== primaryAdmin.toLowerCase()) {
+    recipients.push(customerEmail);
+  }
+  const to = recipients.join(', ');
+
+  const from = process.env.NOTIFICATION_EMAIL_FROM || DEFAULT_NOTIFICATION_FROM;
+  const replyTo = customerEmail || primaryAdmin;
 
   const ref = inquiry.referenceNumber || `JFLL-RFQ-${Date.now()}`;
   const weight = inquiry.weight || 0;
@@ -386,7 +457,11 @@ export async function sendHeavyCargoInquiryEmail(inquiry) {
   const text = buildHeavyCargoEmailText(inquiry);
   const html = buildHeavyCargoEmailSimpleHtml(inquiry);
 
-  if (process.env.GMAIL_CLIENT_ID && process.env.GMAIL_CLIENT_SECRET && process.env.GMAIL_REFRESH_TOKEN) {
+  const clientId = process.env.GMAIL_CLIENT_ID;
+  const clientSecret = process.env.GMAIL_CLIENT_SECRET;
+  const refreshToken = process.env.GMAIL_REFRESH_TOKEN;
+
+  if (clientId && clientSecret && refreshToken) {
     try {
       const result = await sendViaGmailApi({
         from,
@@ -396,14 +471,14 @@ export async function sendHeavyCargoInquiryEmail(inquiry) {
         html,
         text,
       });
-      console.log(`[EmailService] Simple text heavy cargo inquiry (${weight} kg) dispatched via Gmail API to ${to} (MessageID: ${result.id})`);
-      return { success: true, messageId: result.id };
+      console.log(`[EmailService] Simple text heavy cargo inquiry (${weight} kg) dispatched via Gmail API to [${to}] (MessageID: ${result.id})`);
+      return { success: true, messageId: result.id, recipients: to };
     } catch (err) {
       console.error('[EmailService] Gmail REST API dispatch failed for heavy cargo inquiry:', err.message || err);
       return { success: false, error: err.message || 'Gmail API send error' };
     }
   }
 
-  console.warn('[EmailService] No Google Cloud OAuth credentials found in environment. Skipping email dispatch.');
+  console.warn('[EmailService] No Google Cloud OAuth credentials found. Skipping email dispatch.');
   return { success: false, skipped: true, reason: 'No email credentials configured' };
 }

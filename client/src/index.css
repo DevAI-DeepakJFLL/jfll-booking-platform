@@ -506,24 +506,24 @@ select:focus-visible {
   display: flex;
   align-items: center;
   width: 100%;
-  height: 46px;
-  min-height: 46px;
+  height: 48px;
+  min-height: 48px;
   border: 1px solid #c5d0d2;
   border-radius: 13px;
   background: #fff;
   padding: 0 14px;
   color: #101820;
   font-family: inherit;
-  font-size: 0.75rem;
-  line-height: 1.25rem;
-  font-weight: 600;
+  font-size: 0.875rem;
+  line-height: 1.35rem;
+  font-weight: 500;
   outline: none;
   box-sizing: border-box;
   transition: border-color .18s ease, box-shadow .18s ease;
 }
 .booking-input:focus,
 .booking-input:focus-visible { outline: none !important; border-color: #187e9c !important; box-shadow: 0 0 0 3px rgba(24, 126, 156, 0.16) !important; }
-.booking-input::placeholder { color: #908e92; font-size: 0.75rem; font-weight: 400; }
+.booking-input::placeholder { color: #908e92; font-size: 0.875rem; font-weight: 400; }
 .select-trigger { cursor: pointer; }
 .select-leading-icon { display: inline-flex; color: #176579; }
 .select-chevron { color: #6f8188; }

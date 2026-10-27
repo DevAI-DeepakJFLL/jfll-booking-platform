@@ -750,9 +750,12 @@ function App() {
         setBookingError('Please complete shipper and consignee company, contact name, email, and address.');
         return;
       }
-      if (!booking.shipperIec.trim() || booking.shipperIec.trim().length !== 10) {
-        setBookingError('Please enter a valid 10-digit DGFT IEC (Import Export Code) for Indian Customs filing.');
+      if (booking.shipperIec.trim() && booking.shipperIec.trim() !== 'JFLL-ASSISTED' && booking.shipperIec.trim().length !== 10) {
+        setBookingError('Please enter a valid 10-digit DGFT IEC, or leave it blank to request JFLL customs clearance assistance.');
         return;
+      }
+      if (!booking.shipperIec.trim()) {
+        updateBooking('shipperIec', 'JFLL-ASSISTED');
       }
     }
     if (bookingSubStep === 1) {
@@ -764,9 +767,12 @@ function App() {
         setBookingError('Please select an export Incoterm.');
         return;
       }
-      if (!booking.cargoDescription.trim() || !booking.hsCode.trim()) {
-        setBookingError('Please enter a clear commodity description and 6-digit HS Code for customs processing.');
+      if (!booking.cargoDescription.trim()) {
+        setBookingError('Please enter a clear commodity description.');
         return;
+      }
+      if (!booking.hsCode.trim()) {
+        updateBooking('hsCode', 'Pending Classification (JFLL Customs Desk)');
       }
       if (quote.cargoType === 'Dangerous goods' && (!booking.dgUnNumber || !booking.dgUnNumber.trim())) {
         setBookingError('Please specify the IATA UN Identification Number for Dangerous Goods (e.g., UN 3481).');
@@ -869,7 +875,7 @@ function App() {
         (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
         window.location.port !== '4000'
           ? 'http://localhost:4000/api/bookings'
-          : '/api/bookings';
+          : (process.env.NEXT_PUBLIC_API_URL ? `${process.env.NEXT_PUBLIC_API_URL}/api/bookings` : '/api/bookings');
 
       fetch(backendUrl, {
         method: 'POST',
@@ -887,15 +893,18 @@ function App() {
           shipperCompany: booking.shipperCompany,
           shipperEmail: booking.shipperEmail,
           shipperPhone: booking.shipperPhone,
+          shipperAddress: booking.shipperAddress,
           shipperGstin: booking.shipperGstin,
-          shipperIec: booking.shipperIec,
+          shipperIec: booking.shipperIec || 'JFLL-ASSISTED',
           consignee: booking.consigneeName,
           consigneeName: booking.consigneeName,
           consigneeCompany: booking.consigneeCompany,
           consigneeEmail: booking.consigneeEmail,
           consigneePhone: booking.consigneePhone,
+          consigneeAddress: booking.consigneeAddress,
           commodity: booking.cargoDescription || quote.cargoType,
           cargoDescription: booking.cargoDescription,
+          hsCode: booking.hsCode || 'Pending Classification (JFLL Customs Desk)',
           cargoCategory: quote.cargoType,
           packagingType: booking.packagingType,
           incoterm: booking.incoterm,
@@ -1324,7 +1333,7 @@ function App() {
                         <label className="font-mulish block text-[11px] font-extrabold uppercase tracking-[.08em] text-[#4d5b62] mb-2">
                           Origin gateway (India) *
                         </label>
-                        <div className="booking-input select-trigger flex items-center justify-between bg-[#f8fafc] text-xs font-semibold text-[#101820] border-[#dfe5e7] cursor-default min-h-[44px]">
+                        <div className="booking-input select-trigger flex items-center justify-between bg-[#f8fafc] text-sm font-medium text-[#101820] border-[#dfe5e7] cursor-default min-h-[48px]">
                           <div className="flex items-center gap-2.5 min-w-0">
                             <MapPin size={16} className="text-[#187e9c] shrink-0" />
                             <span className="truncate">Mumbai (BOM) &middot; Chhatrapati Shivaji Maharaj Intl</span>
@@ -2045,19 +2054,20 @@ function App() {
                               placeholder="e.g. Ramesh Kumar"
                             />
                             <Field
-                              label="GSTIN (15 Digits) *"
+                              label="GSTIN (15 Digits / Optional)"
                               value={booking.shipperGstin}
                               onChange={(val) => updateBooking('shipperGstin', val)}
-                              placeholder="27AABCA1234F1Z8"
+                              placeholder="27AABCA1234F1Z8 (Optional for personal/sample cargo)"
+                              helper="Leave blank if unregistered or shipping samples"
                             />
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                             <Field
-                              label="DGFT IEC Number *"
+                              label="DGFT IEC Number (Optional)"
                               value={booking.shipperIec}
                               onChange={(val) => updateBooking('shipperIec', val)}
                               placeholder="10-digit Exporter Code"
-                              helper="Mandatory for ICEGATE Shipping Bill"
+                              helper="Leave blank if requesting JFLL Customs assistance"
                             />
                             <Field
                               label="Bank AD Code (Optional)"
@@ -2189,7 +2199,7 @@ function App() {
                                       <input
                                         type="number"
                                         placeholder="1"
-                                        className="booking-input p-2 text-xs min-h-[40px]"
+                                        className="booking-input p-2 text-sm font-medium min-h-[44px]"
                                         value={line.pieces === 0 ? '' : line.pieces}
                                         onChange={(e) => handleUpdatePieceLine(line.id, 'pieces', Math.max(0, Number(e.target.value)))}
                                       />
@@ -2199,7 +2209,7 @@ function App() {
                                       <input
                                         type="number"
                                         placeholder={lineUnit}
-                                        className="booking-input p-2 text-xs min-h-[40px]"
+                                        className="booking-input p-2 text-sm font-medium min-h-[44px]"
                                         value={line.length === 0 ? '' : line.length}
                                         onChange={(e) => handleUpdatePieceLine(line.id, 'length', Math.max(0, Number(e.target.value)))}
                                       />
@@ -2209,7 +2219,7 @@ function App() {
                                       <input
                                         type="number"
                                         placeholder={lineUnit}
-                                        className="booking-input p-2 text-xs min-h-[40px]"
+                                        className="booking-input p-2 text-sm font-medium min-h-[44px]"
                                         value={line.width === 0 ? '' : line.width}
                                         onChange={(e) => handleUpdatePieceLine(line.id, 'width', Math.max(0, Number(e.target.value)))}
                                       />
@@ -2219,7 +2229,7 @@ function App() {
                                       <input
                                         type="number"
                                         placeholder={lineUnit}
-                                        className="booking-input p-2 text-xs min-h-[40px]"
+                                        className="booking-input p-2 text-sm font-medium min-h-[44px]"
                                         value={line.height === 0 ? '' : line.height}
                                         onChange={(e) => handleUpdatePieceLine(line.id, 'height', Math.max(0, Number(e.target.value)))}
                                       />
@@ -2229,7 +2239,7 @@ function App() {
                                       <input
                                         type="number"
                                         placeholder="kg"
-                                        className="booking-input p-2 text-xs min-h-[40px]"
+                                        className="booking-input p-2 text-sm font-medium min-h-[44px]"
                                         value={line.weightPerPiece === 0 ? '' : line.weightPerPiece}
                                         onChange={(e) => handleUpdatePieceLine(line.id, 'weightPerPiece', Math.max(0, Number(e.target.value)))}
                                       />
@@ -2305,13 +2315,30 @@ function App() {
                             onChange={(val) => updateBooking('cargoDescription', val)}
                             placeholder="e.g. Precision auto electrical brackets"
                           />
-                          <Field
-                            label="Harmonized System (HS) Code *"
-                            value={booking.hsCode}
-                            onChange={(val) => updateBooking('hsCode', val)}
-                            placeholder="e.g. 7318.15"
-                            helper="6 or 8 digits required for Indian Customs Shipping Bill"
-                          />
+                          <div>
+                            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+                              <label className="font-mulish block text-[10px] sm:text-[11px] font-extrabold uppercase tracking-normal sm:tracking-[.08em] text-[#555c61]">
+                                Harmonized System (HS) Code (Optional)
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => updateBooking('hsCode', 'JFLL Customs Classification Desk')}
+                                className="font-mulish text-[11px] font-bold text-[#187e9c] hover:underline cursor-pointer"
+                              >
+                                Don&apos;t have HS Code? Let JFLL classify
+                              </button>
+                            </div>
+                            <input
+                              data-testid="input-hs-code"
+                              className="booking-input text-sm font-medium text-[#101820] min-h-[48px]"
+                              value={booking.hsCode}
+                              placeholder="e.g. 7318.15 or click to let JFLL classify"
+                              onChange={(e) => updateBooking('hsCode', e.target.value)}
+                            />
+                            <span className="font-mulish mt-1.5 block text-[11px] text-[#908e92]">
+                              6 or 8 digits for Indian Customs, or leave blank for our customs team to classify from description
+                            </span>
+                          </div>
 
                           {(quote.cargoType === 'Pharma healthcare' || quote.cargoType === 'Perishables') && (
                             <div className="md:col-span-2">

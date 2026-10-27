@@ -81,15 +81,19 @@ Booking-Experience-Hub/
 * Generates an official RFQ reference (e.g., `JFLL-RFQ-2026-44297`) with a 2-hour SLA response window and priority pricing desk escalation.
 
 ### 4. UI/UX Pro Design System & Form Harmonization
-* **Typography Standardization**: Form controls follow a strict design hierarchy:
-  * Input values: `text-xs` (`12px` / `0.75rem`), `font-semibold` (weight 600), `#101820` text color.
-  * Input placeholders: `text-xs` (`12px`), `font-normal` (weight 400), `#908e92` muted color.
+* **Typography Standardization**: Form controls follow a clean, comfortable, and legible hierarchy:
+  * Input values: `text-sm` (`14px` / `0.875rem`), `font-medium` (weight 500), `#101820` text color.
+  * Input placeholders: `text-sm` (`14px`), `font-normal` (weight 400), `#908e92` muted color.
   * Input labels: `text-[11px]`, uppercase bold tracking (`.08em`), `#4d5b62`.
-* **Pixel-Perfect Alignment**: All inputs, select triggers, date pickers, and the fixed Origin Gateway (Mumbai BOM) share an identical `46px` box height and `padding: 0 14px`.
+* **Pixel-Perfect 48px Alignment**: All inputs, select triggers, custom date pickers, and the fixed Origin Gateway (Mumbai BOM) share an identical `48px` box height and `padding: 0 14px`.
+* **Frictionless Compliance & Assisted Customs**:
+  * **HS Code Assistance**: Harmonized System (HS) Code is optional with a 1-click helper (*"Don't have HS Code? Let JFLL classify"*). Casual and first-time shippers can book immediately while JFLL customs brokers classify the tariff from commodity descriptions.
+  * **Optional DGFT IEC & GSTIN**: Exporter IEC and GSTIN fields are non-blocking with automated assistance fallbacks (`JFLL-ASSISTED`), accommodating non-commercial cargo, samples, and overseas entities without Indian registrations.
 * **Zero External Component Dependencies**: Form controls, custom dropdowns, and date pickers use lightweight native SVG icons (Lucide) and Tailwind CSS 4 transitions without third-party widget bloat.
 
-### 5. Enterprise Security & Zero-Dependency Backend
+### 5. Enterprise Security & Dual-Recipient Email Service
 * **Zero npm Dependencies**: The backend (`server/`) is written in 100% native Node.js ESM. It requires 0 external npm packages, packaging into a lightweight ~50 KB bundle.
+* **Dual-Recipient Email Delivery**: Automated booking confirmations and heavy cargo spot RFQs are dispatched via Google Cloud OAuth2 Gmail API or AWS SES to **both** the internal operations desk (`deepak.naidu@jfll.com`) and the customer / order placer (`booking.shipperEmail`).
 * **Native MIME Email Service**: Email generation uses a built-in RFC 2822 multipart/alternative MIME compiler with automated HTML entity escaping to prevent template injection.
 * **Streaming Payload Bounds**: All incoming request bodies are capped at 64 KB using bounded streaming buffers to prevent memory exhaustion and DoS attacks.
 * **Input Sanitization**: Incoming strings are sanitized to strip control characters and HTML tags.

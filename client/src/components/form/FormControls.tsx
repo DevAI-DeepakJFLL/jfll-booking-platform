@@ -35,7 +35,7 @@ export function Field({
       </span>
       <input
         data-testid={`input-${label.toLowerCase().replaceAll(' ', '-')}`}
-        className={`booking-input text-xs font-semibold text-[#101820] min-h-[44px] ${invalid ? 'invalid' : ''}`}
+        className={`booking-input text-sm font-medium text-[#101820] min-h-[48px] ${invalid ? 'invalid' : ''}`}
         type={type}
         value={value}
         placeholder={placeholder}
@@ -104,14 +104,14 @@ export function StyledSelect({
         id={id}
         type="button"
         onClick={() => setOpen((current) => !current)}
-        className="booking-input select-trigger flex items-center gap-2.5 text-left w-full cursor-pointer min-h-[44px]"
+        className="booking-input select-trigger flex items-center gap-2.5 text-left w-full cursor-pointer min-h-[48px]"
         aria-haspopup="listbox"
         aria-expanded={open}
       >
         {icon ? <span className="select-icon shrink-0 text-[#187e9c]">{icon}</span> : null}
         <span
-          className={`min-w-0 flex-1 truncate text-xs ${
-            !selected ? 'text-[#908e92] font-normal' : 'font-semibold text-[#101820]'
+          className={`min-w-0 flex-1 truncate text-sm ${
+            !selected ? 'text-[#908e92] font-normal' : 'font-medium text-[#101820]'
           }`}
         >
           {selected?.label || placeholder || 'Select an option'}
@@ -143,7 +143,7 @@ export function StyledSelect({
                   onChange(option.value);
                   setOpen(false);
                 }}
-                className={`select-option flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-xs font-mulish transition cursor-pointer ${
+                className={`select-option flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm font-mulish transition cursor-pointer ${
                   option.value === value
                     ? 'bg-[#101820] text-white font-bold'
                     : 'text-[#101820] hover:bg-[#f4f7f8]'
@@ -304,14 +304,14 @@ export function CustomDatePicker({
         id={id}
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="booking-input select-trigger flex items-center gap-2.5 text-left w-full cursor-pointer min-h-[44px]"
+        className="booking-input select-trigger flex items-center gap-2.5 text-left w-full cursor-pointer min-h-[48px]"
         aria-haspopup="dialog"
         aria-expanded={open}
       >
         <Calendar size={16} className="text-[#187e9c] shrink-0" />
         <span
-          className={`min-w-0 flex-1 truncate text-xs ${
-            !value ? 'text-[#908e92] font-normal' : 'font-semibold text-[#101820]'
+          className={`min-w-0 flex-1 truncate text-sm ${
+            !value ? 'text-[#908e92] font-normal' : 'font-medium text-[#101820]'
           }`}
         >
           {formattedDisplay || placeholder}
