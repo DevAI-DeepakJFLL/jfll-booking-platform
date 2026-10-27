@@ -6,12 +6,11 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { formatAirlineName, getFlightSchedule, calculateQuote } from './lib/freight-domain.mjs';
+import { calculateQuote } from './lib/freight-domain.mjs';
 import {
   validateQuoteInput,
   validateInquiryInput,
   validateBookingInput,
-  sanitizeString,
 } from './lib/security.mjs';
 import { sendBookingConfirmationEmail, sendHeavyCargoInquiryEmail } from './lib/email-service.mjs';
 import { loadBookings, saveBooking, loadInquiries, saveInquiry } from './lib/storage.mjs';

@@ -6,14 +6,13 @@
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
-import { formatAirlineName, getFlightSchedule, calculateQuote } from './lib/freight-domain.mjs';
+import { calculateQuote } from './lib/freight-domain.mjs';
 import {
   applySecurityHeaders,
   readJsonBody,
   validateQuoteInput,
   validateInquiryInput,
   validateBookingInput,
-  sanitizeString,
 } from './lib/security.mjs';
 import { sendBookingConfirmationEmail, sendHeavyCargoInquiryEmail } from './lib/email-service.mjs';
 import { loadBookings, saveBooking, loadInquiries, saveInquiry } from './lib/storage.mjs';
@@ -67,7 +66,28 @@ const server = http.createServer(async (req, res) => {
       res.end();
       return;
     }
-    res.end(JSON.stringify({ status: 'ok', service: 'Jet Freight Backend API', emulator: 'Floci AWS' }));
+    const hasClientId = Boolean(process.env.GMAIL_CLIENT_ID);
+    const hasClientSecret = Boolean(process.env.GMAIL_CLIENT_SECRET);
+    const hasRefreshToken = Boolean(process.env.GMAIL_REFRESH_TOKEN);
+    const hasUser = Boolean(process.env.GMAIL_USER);
+    res.end(
+      JSON.stringify({
+        status: 'ok',
+        service: 'Jet Freight Backend API',
+        runtime: 'Node.js Standalone HTTP',
+        timestamp: new Date().toISOString(),
+        emailConfiguration: {
+          configured: hasClientId && hasClientSecret && hasRefreshToken,
+          hasClientId,
+          clientIdPrefix: process.env.GMAIL_CLIENT_ID ? process.env.GMAIL_CLIENT_ID.substring(0, 15) + '...' : null,
+          hasClientSecret,
+          hasRefreshToken,
+          hasUser,
+          notificationTo: process.env.NOTIFICATION_EMAIL_TO || 'deepak.naidu@jfll.com',
+          notificationFrom: process.env.NOTIFICATION_EMAIL_FROM || 'default',
+        },
+      })
+    );
     return;
   }
 
@@ -149,13 +169,16 @@ const server = http.createServer(async (req, res) => {
 
         const bookingRecord = saveBooking(validation.data);
 
-        // Asynchronously dispatch confirmation email to deepak.naidu@jfll.com
-        sendBookingConfirmationEmail(bookingRecord).catch((err) => {
+        let emailResult = null;
+        try {
+          emailResult = await sendBookingConfirmationEmail(bookingRecord);
+        } catch (err) {
           console.error('[EmailService] Async booking notification failed:', err);
-        });
+          emailResult = { success: false, error: err.message || String(err) };
+        }
 
         res.writeHead(201, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true, booking: bookingRecord }));
+        res.end(JSON.stringify({ success: true, booking: bookingRecord, emailDelivery: emailResult }));
       } catch (err) {
         const status = err.statusCode || 500;
         res.writeHead(status, { 'Content-Type': 'application/json' });
@@ -200,21 +223,28 @@ const server = http.createServer(async (req, res) => {
 
         saveInquiry(inquiryRecord);
 
-        // Asynchronously dispatch urgent heavy cargo notification to deepak.naidu@jfll.com
-        sendHeavyCargoInquiryEmail(inquiryRecord).catch((err) => {
+        let emailResult = null;
+        try {
+          emailResult = await sendHeavyCargoInquiryEmail(inquiryRecord);
+        } catch (err) {
           console.error('[EmailService] Async heavy cargo notification failed:', err);
-        });
+          emailResult = { success: false, error: err.message || String(err) };
+        }
 
         res.writeHead(201, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          success: true,
-          inquiryId: inquiryRecord.id,
-          referenceNumber: ref,
-          status: inquiryRecord.status,
-          estimatedResponseTime: inquiryRecord.estimatedResponseTime,
-          message: 'Heavy cargo inquiry received. Our Sales Coordinator or Pricing Team will contact you soon with custom spot rates.',
-          data: inquiryRecord,
-        }));
+        res.end(
+          JSON.stringify({
+            success: true,
+            inquiryId: inquiryRecord.id,
+            referenceNumber: ref,
+            status: inquiryRecord.status,
+            estimatedResponseTime: inquiryRecord.estimatedResponseTime,
+            message:
+              'Heavy cargo inquiry received. Our Sales Coordinator or Pricing Team will contact you soon with custom spot rates.',
+            data: inquiryRecord,
+            emailDelivery: emailResult,
+          })
+        );
       } catch (err) {
         const status = err.statusCode || 500;
         res.writeHead(status, { 'Content-Type': 'application/json' });

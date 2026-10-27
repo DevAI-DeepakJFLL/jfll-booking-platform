@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { CARRIER_CODE_MAP } from '../lib/freight-domain';
 
 export interface AirlineLogoProps {
@@ -32,18 +32,12 @@ export function AirlineLogo({
     return raw.slice(0, 2) || 'JF';
   }, [carrier, carrierCode]);
 
-  const [basePath, setBasePath] = useState(() => {
+  const [basePath] = useState(() => {
     if (typeof window !== 'undefined' && window.location.pathname.startsWith('/booking-frontend')) {
       return '/booking-frontend';
     }
     return '';
   });
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/booking-frontend')) {
-      setBasePath('/booking-frontend');
-    }
-  }, []);
 
   if (hasError || !code) {
     return (

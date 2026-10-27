@@ -9,14 +9,11 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  ChevronDown,
-  CircleHelp,
   Clock3,
   Copy,
   FileText,
   Globe2,
   Info,
-  LockKeyhole,
   MapPin,
   Menu,
   Plane,
@@ -26,27 +23,24 @@ import {
   X,
   Search,
   Building2,
-  Download,
   UserCheck,
   AlertCircle,
   FileCheck,
   Boxes,
   Plus,
   Trash2,
-  Calendar,
 } from 'lucide-react';
 import { fetchLiveOrCalculatedRates, type RateItem } from './services/rate-discovery.service';
 import {
   formatAirlineName,
-  CARRIER_CODE_MAP,
   formatInr,
   parseTransitMinutes,
   parseDepartureMinutes,
   convertToCm,
   calculateVolumetricWeight,
   calculateCbm,
-  type DimensionUnit,
 } from './lib/freight-domain';
+import { getApiEndpoint } from './lib/utils';
 import { AirlineLogo } from './components/AirlineLogo';
 import { QuickTrackModal } from './components/modals/QuickTrackModal';
 import { DocumentPreviewModal } from './components/modals/DocumentPreviewModal';
@@ -84,10 +78,6 @@ export type {
 /* ==========================================================================
    STATIC DATA & CATALOG
    ========================================================================== */
-
-const originLocations = [
-  { code: 'BOM', city: 'Mumbai', airport: 'Chhatrapati Shivaji Maharaj International Airport' },
-];
 
 const destLocations = [
   { code: 'DXB', city: 'Dubai', airport: 'Dubai International Airport' },
@@ -285,8 +275,6 @@ const mockShipments: ShipmentRecord[] = [
   },
 ];
 
-const getToday = () => new Date().toISOString().slice(0, 10);
-
 /* ==========================================================================
    UI HELPER COMPONENTS (AUTHENTIC SPECIFICATION)
    ========================================================================== */
@@ -392,8 +380,6 @@ function App() {
 
   // Tracking modal state
   const [isTrackModalOpen, setIsTrackModalOpen] = useState<boolean>(false);
-  const [trackQuery, setTrackQuery] = useState<string>('');
-  const [trackResult, setTrackResult] = useState<ShipmentRecord | null>(null);
 
   const openTrackModal = () => {
     setIsTrackModalOpen(true);
@@ -869,15 +855,7 @@ function App() {
 
     // Asynchronously notify backend API / Floci persistence
     try {
-      const isLocal =
-        typeof window !== 'undefined' &&
-        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
-        window.location.port !== '4000';
-      const cleanApiBase = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
-      const backendUrl = isLocal
-        ? 'http://localhost:4000/api/bookings'
-        : (cleanApiBase ? `${cleanApiBase}/api/bookings` : '/api/bookings');
-
+      const backendUrl = getApiEndpoint('/api/bookings');
       console.log('[Booking API] Submitting booking request to:', backendUrl);
 
       fetch(backendUrl, {
@@ -952,15 +930,6 @@ function App() {
       // Local fallback
     }
     setCookieVisible(false);
-  };
-
-  const handleQuickTrackLookup = (e: React.FormEvent) => {
-    e.preventDefault();
-    const query = trackQuery.trim().toUpperCase();
-    const found = shipmentsList.find(
-      (s) => s.reference.toUpperCase().includes(query) || s.awbNumber.toUpperCase().includes(query)
-    );
-    setTrackResult(found ?? null);
   };
 
   return (

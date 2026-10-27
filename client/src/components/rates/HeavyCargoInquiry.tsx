@@ -17,7 +17,6 @@ import {
   Package,
   PlaneTakeoff,
   Loader2,
-  HelpCircle,
 } from 'lucide-react';
 import {
   submitHeavyCargoInquiry,
