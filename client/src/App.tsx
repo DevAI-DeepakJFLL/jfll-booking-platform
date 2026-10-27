@@ -921,9 +921,16 @@ function App() {
           }
           const data = await res.json();
           console.log('[Booking API] Booking successfully saved on backend:', data);
+          const isDynamo = data.storage ? data.storage.driver === 'dynamodb' && data.storage.success : true;
+          const storageMsg = isDynamo
+            ? 'Saved durably to Amazon DynamoDB.'
+            : data.storage?.error
+            ? `DynamoDB sync notice: ${data.storage.error}`
+            : 'Saved to cloud storage fallback.';
+
           setCloudSyncStatus({
             status: 'synced',
-            message: 'Saved durably to Amazon DynamoDB.',
+            message: storageMsg,
             messageId: data.emailDelivery?.messageId || (data.emailDelivery?.success ? 'Dispatched' : undefined),
           });
         })

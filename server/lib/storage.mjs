@@ -100,11 +100,14 @@ export function loadBookingsSync(forceRefresh = false) {
   return cachedBookings;
 }
 
+export const DEFAULT_BOOKINGS_TABLE = 'jfll-bookings';
+export const DEFAULT_INQUIRIES_TABLE = 'jfll-inquiries';
+
 /**
- * Loads all saved bookings. Reads from DynamoDB if configured; otherwise reads local file.
+ * Loads all saved bookings. Reads from DynamoDB if available; otherwise reads local file.
  */
 export async function loadBookings(forceRefresh = false) {
-  const table = process.env.DYNAMODB_TABLE_BOOKINGS;
+  const table = process.env.DYNAMODB_TABLE_BOOKINGS || DEFAULT_BOOKINGS_TABLE;
   if (table) {
     try {
       const client = await getDocClient();
@@ -116,7 +119,7 @@ export async function loadBookings(forceRefresh = false) {
         return items;
       }
     } catch (err) {
-      console.error('[Storage] DynamoDB loadBookings failed; falling back to local file:', err.message);
+      console.warn('[Storage] DynamoDB loadBookings failed; falling back to local file:', err.message);
     }
   }
 
@@ -124,33 +127,51 @@ export async function loadBookings(forceRefresh = false) {
 }
 
 /**
- * Saves a new booking record. Persists to DynamoDB if configured; otherwise saves to local file.
+ * Saves a new booking record. Persists to DynamoDB if available; otherwise saves to local file.
  */
 export async function saveBooking(booking) {
-  const table = process.env.DYNAMODB_TABLE_BOOKINGS;
+  const table = process.env.DYNAMODB_TABLE_BOOKINGS || DEFAULT_BOOKINGS_TABLE;
+  let dynamoSaved = false;
+  let dynamoError = null;
+
   if (table) {
     try {
       const client = await getDocClient();
       if (client) {
         const { PutCommand } = await import('@aws-sdk/lib-dynamodb');
+        const itemToSave = { ...booking };
+        delete itemToSave._storage;
+
         await client.send(
           new PutCommand({
             TableName: table,
-            Item: booking,
+            Item: itemToSave,
           })
         );
-        return booking;
+        dynamoSaved = true;
+        console.log(`[Storage] Saved booking ${booking.reference} to DynamoDB table ${table}`);
+      } else {
+        dynamoError = 'DynamoDB client unavailable';
       }
     } catch (err) {
       console.error('[Storage] DynamoDB saveBooking failed; falling back to local file:', err.message);
+      dynamoError = err.message || String(err);
     }
   }
 
-  // Fallback to local JSON storage
+  // Always keep local JSON storage in sync as fallback
   const current = loadBookingsSync();
   current.unshift(booking);
   cachedBookings = current;
   writeJsonArray(BOOKINGS_FILE, current);
+
+  booking._storage = {
+    driver: dynamoSaved ? 'dynamodb' : 'local-fallback',
+    table,
+    success: dynamoSaved,
+    error: dynamoError,
+  };
+
   return booking;
 }
 
@@ -165,10 +186,10 @@ export function loadInquiriesSync(forceRefresh = false) {
 }
 
 /**
- * Loads all saved inquiries. Reads from DynamoDB if configured; otherwise reads local file.
+ * Loads all saved inquiries. Reads from DynamoDB if available; otherwise reads local file.
  */
 export async function loadInquiries(forceRefresh = false) {
-  const table = process.env.DYNAMODB_TABLE_INQUIRIES;
+  const table = process.env.DYNAMODB_TABLE_INQUIRIES || DEFAULT_INQUIRIES_TABLE;
   if (table) {
     try {
       const client = await getDocClient();
@@ -180,7 +201,7 @@ export async function loadInquiries(forceRefresh = false) {
         return items;
       }
     } catch (err) {
-      console.error('[Storage] DynamoDB loadInquiries failed; falling back to local file:', err.message);
+      console.warn('[Storage] DynamoDB loadInquiries failed; falling back to local file:', err.message);
     }
   }
 
@@ -188,32 +209,50 @@ export async function loadInquiries(forceRefresh = false) {
 }
 
 /**
- * Saves a new inquiry record. Persists to DynamoDB if configured; otherwise saves to local file.
+ * Saves a new inquiry record. Persists to DynamoDB if available; otherwise saves to local file.
  */
 export async function saveInquiry(inquiry) {
-  const table = process.env.DYNAMODB_TABLE_INQUIRIES;
+  const table = process.env.DYNAMODB_TABLE_INQUIRIES || DEFAULT_INQUIRIES_TABLE;
+  let dynamoSaved = false;
+  let dynamoError = null;
+
   if (table) {
     try {
       const client = await getDocClient();
       if (client) {
         const { PutCommand } = await import('@aws-sdk/lib-dynamodb');
+        const itemToSave = { ...inquiry };
+        delete itemToSave._storage;
+
         await client.send(
           new PutCommand({
             TableName: table,
-            Item: inquiry,
+            Item: itemToSave,
           })
         );
-        return inquiry;
+        dynamoSaved = true;
+        console.log(`[Storage] Saved inquiry ${inquiry.referenceNumber} to DynamoDB table ${table}`);
+      } else {
+        dynamoError = 'DynamoDB client unavailable';
       }
     } catch (err) {
       console.error('[Storage] DynamoDB saveInquiry failed; falling back to local file:', err.message);
+      dynamoError = err.message || String(err);
     }
   }
 
-  // Fallback to local JSON storage
+  // Always keep local JSON storage in sync as fallback
   const current = loadInquiriesSync();
   current.unshift(inquiry);
   cachedInquiries = current;
   writeJsonArray(INQUIRIES_FILE, current);
+
+  inquiry._storage = {
+    driver: dynamoSaved ? 'dynamodb' : 'local-fallback',
+    table,
+    success: dynamoSaved,
+    error: dynamoError,
+  };
+
   return inquiry;
 }

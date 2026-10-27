@@ -112,6 +112,11 @@ export async function handler(event) {
           notificationTo: process.env.NOTIFICATION_EMAIL_TO || 'deepak.naidu@jfll.com',
           notificationFrom: process.env.NOTIFICATION_EMAIL_FROM || 'default',
         },
+        dynamoDbConfiguration: {
+          tableBookings: process.env.DYNAMODB_TABLE_BOOKINGS || 'jfll-bookings',
+          tableInquiries: process.env.DYNAMODB_TABLE_INQUIRIES || 'jfll-inquiries',
+          region: process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'ap-southeast-2',
+        },
       }),
     };
   }
@@ -227,6 +232,7 @@ export async function handler(event) {
         message:
           'Heavy cargo inquiry received. Our Sales Coordinator or Pricing Team will contact you soon with custom spot rates.',
         data: inquiryRecord,
+        storage: inquiryRecord._storage,
         emailDelivery: emailResult,
       }),
     };
@@ -270,6 +276,7 @@ export async function handler(event) {
         body: JSON.stringify({
           success: true,
           booking: bookingRecord,
+          storage: bookingRecord._storage,
           emailDelivery: emailResult,
         }),
       };
