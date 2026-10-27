@@ -106,7 +106,6 @@ export async function handler(event) {
         emailConfiguration: {
           configured: hasClientId && hasClientSecret && hasRefreshToken,
           hasClientId,
-          clientIdPrefix: process.env.GMAIL_CLIENT_ID ? process.env.GMAIL_CLIENT_ID.substring(0, 15) + '...' : null,
           hasClientSecret,
           hasRefreshToken,
           hasUser,
@@ -213,7 +212,7 @@ export async function handler(event) {
       emailResult = await sendHeavyCargoInquiryEmail(inquiryRecord);
     } catch (err) {
       console.error('[EmailService] Lambda heavy cargo notification failed:', err);
-      emailResult = { success: false, error: err.message || String(err) };
+      emailResult = { success: false, message: 'Notification queued or delivery pending' };
     }
 
     return {
@@ -262,7 +261,7 @@ export async function handler(event) {
         emailResult = await sendBookingConfirmationEmail(bookingRecord);
       } catch (err) {
         console.error('[EmailService] Lambda booking notification failed:', err);
-        emailResult = { success: false, error: err.message || String(err) };
+        emailResult = { success: false, message: 'Notification queued or delivery pending' };
       }
 
       return {

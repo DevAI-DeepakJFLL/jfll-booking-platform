@@ -79,7 +79,6 @@ const server = http.createServer(async (req, res) => {
         emailConfiguration: {
           configured: hasClientId && hasClientSecret && hasRefreshToken,
           hasClientId,
-          clientIdPrefix: process.env.GMAIL_CLIENT_ID ? process.env.GMAIL_CLIENT_ID.substring(0, 15) + '...' : null,
           hasClientSecret,
           hasRefreshToken,
           hasUser,

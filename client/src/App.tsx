@@ -934,11 +934,12 @@ function App() {
             message: `Connection error: ${err.message || 'Failed to reach cloud endpoint'}`,
           });
         });
-    } catch (err: any) {
-      console.error('[Booking API] Failed to trigger booking notification:', err);
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.error('[Booking API] Failed to trigger booking notification:', errMsg);
       setCloudSyncStatus({
         status: 'error',
-        message: `Failed to dispatch: ${err.message || String(err)}`,
+        message: `Failed to dispatch: ${errMsg}`,
       });
     }
   };
