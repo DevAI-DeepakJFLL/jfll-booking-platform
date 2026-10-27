@@ -44,9 +44,6 @@ if (fs.existsSync(csvPath)) {
 
 const COMMON_HEADERS = {
   'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, Idempotency-Key, X-Client-Id',
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
 };
