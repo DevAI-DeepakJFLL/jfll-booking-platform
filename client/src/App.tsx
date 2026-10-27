@@ -23,7 +23,6 @@ import {
   X,
   Search,
   Building2,
-  UserCheck,
   AlertCircle,
   FileCheck,
   Boxes,
@@ -359,25 +358,6 @@ function App() {
     } catch {}
   }, []);
 
-  // JFLL Returning Partner identification state (replaces separate corporate login)
-  const [hasWorkedWithJfll, setHasWorkedWithJfll] = useState<boolean>(false);
-  const [jfllIdentifier, setJfllIdentifier] = useState<string>('');
-  const isContractUser = hasWorkedWithJfll && Boolean(jfllIdentifier.trim());
-  const contractCompanyName = jfllIdentifier.trim() || 'JFLL Partner';
-  const contractUidInput = jfllIdentifier.trim();
-
-  const clearJfllPartner = () => {
-    setHasWorkedWithJfll(false);
-    setJfllIdentifier('');
-    setQuote((prev) => ({
-      ...prev,
-      hasWorkedWithJfll: false,
-      jfllIdentifier: '',
-      hasWorkedWithJfl: false,
-      jflIdentifier: '',
-    }));
-  };
-
   // Tracking modal state
   const [isTrackModalOpen, setIsTrackModalOpen] = useState<boolean>(false);
 
@@ -658,10 +638,6 @@ function App() {
 
   const submitQuote = (event: React.FormEvent) => {
     event.preventDefault();
-    if (hasWorkedWithJfll && !jfllIdentifier.trim()) {
-      setQuoteError("Please enter your JFLL Member ID, Client ID, or Company Name, or select 'No'.");
-      return;
-    }
     if (
       !quote.origin ||
       !quote.destination ||
@@ -903,10 +879,10 @@ function App() {
           pieces: quote.pieces,
           chargeableWeight,
           totalAmount: finalAmount,
-          hasWorkedWithJfll,
-          jfllIdentifier: jfllIdentifier.trim() || undefined,
-          hasWorkedWithJfl: hasWorkedWithJfll,
-          jflIdentifier: jfllIdentifier.trim() || undefined,
+          hasWorkedWithJfll: false,
+          jfllIdentifier: undefined,
+          hasWorkedWithJfl: false,
+          jflIdentifier: undefined,
         }),
       })
         .then(async (res) => {
@@ -997,21 +973,6 @@ function App() {
           </nav>
 
           <div className="hidden items-center gap-4 sm:flex">
-            {/* JFLL Partner Identification Status */}
-            {isContractUser && (
-              <div className="flex items-center gap-2 rounded-full border border-[#d4e9e3] bg-[#eef8f5] px-3.5 py-1.5 font-mulish text-[11px] font-extrabold text-[#176579]">
-                <UserCheck size={14} className="text-[#187e9c]" />
-                <span className="truncate max-w-[140px]">{contractCompanyName}</span>
-                <button
-                  onClick={clearJfllPartner}
-                  className="ml-1 text-[10px] font-bold text-[#908e92] hover:text-[#b44f47] cursor-pointer"
-                  title="Clear JFLL Partner details"
-                >
-                  (Clear)
-                </button>
-              </div>
-            )}
-
             <button
               onClick={scrollToQuote}
               className="focus-ring rounded-full bg-[#101820] px-5 py-2.5 font-mulish text-[12px] font-extrabold text-white transition hover:-translate-y-0.5 hover:bg-[#263740] shadow-sm flex items-center gap-1"
@@ -1062,20 +1023,6 @@ function App() {
                 >
                   <Search size={15} /> Track Shipment
                 </button>
-
-                {isContractUser && (
-                  <div className="mt-2 pt-3 border-t border-[#dfe5e7] flex items-center justify-between text-xs font-bold text-[#176579]">
-                    <div className="flex items-center gap-2">
-                      <UserCheck size={14} /> {contractCompanyName}
-                    </div>
-                    <button
-                      onClick={clearJfllPartner}
-                      className="text-[#908e92] hover:text-[#b44f47] text-xs font-bold cursor-pointer"
-                    >
-                      Clear
-                    </button>
-                  </div>
-                )}
               </div>
             </motion.div>
           )}
@@ -1563,82 +1510,7 @@ function App() {
                       </div>
                     )}
 
-                    {/* Have you previously worked with JFLL? Form Field Card */}
-                    <div className="mt-5 rounded-2xl border border-[#dfe5e7] bg-[#f8fbfa] p-4 sm:p-5 font-mulish text-xs">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <Building2 size={16} className="text-[#187e9c]" />
-                            <strong className="text-sm text-[#101820]">Have you previously worked with JFLL?</strong>
-                          </div>
-                          <span className="text-[#65686d] text-[11px] block mt-0.5">
-                            Link your existing JFLL account for priority booking processing and assigned operations desk support.
-                          </span>
-                        </div>
-                        <div className="inline-flex rounded-xl bg-[#e8eef0] p-1 text-xs shrink-0 self-start sm:self-auto">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setHasWorkedWithJfll(true);
-                              updateQuote('hasWorkedWithJfll', true);
-                              updateQuote('hasWorkedWithJfl', true);
-                            }}
-                            className={`rounded-lg px-4 py-1.5 font-bold transition cursor-pointer ${
-                              hasWorkedWithJfll
-                                ? 'bg-[#176579] text-white shadow-xs'
-                                : 'text-[#64748b] hover:text-[#101820]'
-                            }`}
-                            data-testid="button-worked-with-jfll-yes"
-                          >
-                            Yes
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setHasWorkedWithJfll(false);
-                              setJfllIdentifier('');
-                              updateQuote('hasWorkedWithJfll', false);
-                              updateQuote('jfllIdentifier', '');
-                              updateQuote('hasWorkedWithJfl', false);
-                              updateQuote('jflIdentifier', '');
-                            }}
-                            className={`rounded-lg px-4 py-1.5 font-bold transition cursor-pointer ${
-                              !hasWorkedWithJfll
-                                ? 'bg-white text-[#101820] shadow-xs'
-                                : 'text-[#64748b] hover:text-[#101820]'
-                            }`}
-                            data-testid="button-worked-with-jfll-no"
-                          >
-                            No
-                          </button>
-                        </div>
-                      </div>
 
-                      {hasWorkedWithJfll && (
-                        <div className="mt-4 pt-3.5 border-t border-[#e2e8ea]">
-                          <Field
-                            label="Member ID / Client ID / Company Name *"
-                            value={jfllIdentifier}
-                            onChange={(val) => {
-                              setJfllIdentifier(val);
-                              updateQuote('jfllIdentifier', val);
-                              updateQuote('jflIdentifier', val);
-                              if (!booking.shipperCompany || booking.shipperCompany === jfllIdentifier) {
-                                setBooking((prev) => ({ ...prev, shipperCompany: val }));
-                              }
-                            }}
-                            placeholder="e.g. JFLL-MUM-8921 or Reliance Retail Ltd"
-                            helper="Enter your JFLL partner ID, account number, or registered company name for assigned account handling."
-                          />
-                          {jfllIdentifier.trim() && (
-                            <div className="mt-2.5 flex items-center gap-1.5 text-[11px] font-bold text-[#176579]">
-                              <CheckCircle2 size={13} className="text-[#187e9c]" />
-                              <span>JFLL Partner identified ({jfllIdentifier.trim()}) &bull; Priority desk routing enabled</span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
 
                     {quoteError && (
                       <div
@@ -2986,12 +2858,6 @@ function App() {
               </div>
 
               <div className="flex items-center gap-3">
-                {isContractUser && (
-                  <div className="hidden sm:flex items-center gap-2 rounded-full border border-[#d4e9e3] bg-[#eef8f5] px-3.5 py-1.5 font-mulish text-xs font-extrabold text-[#176579]">
-                    <Building2 size={13} className="text-[#187e9c]" />
-                    <span className="truncate max-w-[150px]">{contractCompanyName}</span>
-                  </div>
-                )}
                 <button
                   onClick={openTrackModal}
                   className="focus-ring rounded-full border border-[#dfe5e7] bg-white px-4 py-2.5 font-mulish text-xs font-extrabold text-[#16243a] transition hover:bg-[#f4f7f8] flex items-center gap-1.5"
