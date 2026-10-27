@@ -11,20 +11,26 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Ensure storage directory exists for local fallback
-const candidateStorageDirs = [
-  path.resolve(__dirname, '../storage'),
-  path.resolve(process.cwd(), 'server/storage'),
-  path.resolve(process.cwd(), 'storage'),
-];
+const isLambda = Boolean(process.env.LAMBDA_TASK_ROOT || process.env.AWS_LAMBDA_FUNCTION_NAME);
 
-let storageDir = candidateStorageDirs.find((d) => fs.existsSync(d));
-if (!storageDir) {
-  storageDir = candidateStorageDirs[0];
-  try {
+let storageDir;
+if (isLambda) {
+  storageDir = '/tmp/storage';
+} else {
+  const candidateStorageDirs = [
+    path.resolve(__dirname, '../storage'),
+    path.resolve(process.cwd(), 'server/storage'),
+    path.resolve(process.cwd(), 'storage'),
+  ];
+  storageDir = candidateStorageDirs.find((d) => fs.existsSync(d)) || candidateStorageDirs[0];
+}
+
+try {
+  if (!fs.existsSync(storageDir)) {
     fs.mkdirSync(storageDir, { recursive: true });
-  } catch (err) {
-    console.warn('[Storage] Failed to create storage dir:', err.message);
   }
+} catch (err) {
+  console.warn('[Storage] Failed to create storage dir:', err.message);
 }
 
 const BOOKINGS_FILE = path.join(storageDir, 'bookings.json');
@@ -113,7 +119,7 @@ export async function loadBookings(forceRefresh = false) {
       const client = await getDocClient();
       if (client) {
         const { ScanCommand } = await import('@aws-sdk/lib-dynamodb');
-        const res = await client.send(new ScanCommand({ TableName: table }));
+        const res = await client.send(new ScanCommand({ TableName: table, Limit: 50 }));
         const items = res.Items || [];
         items.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
         return items;
@@ -195,7 +201,7 @@ export async function loadInquiries(forceRefresh = false) {
       const client = await getDocClient();
       if (client) {
         const { ScanCommand } = await import('@aws-sdk/lib-dynamodb');
-        const res = await client.send(new ScanCommand({ TableName: table }));
+        const res = await client.send(new ScanCommand({ TableName: table, Limit: 50 }));
         const items = res.Items || [];
         items.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
         return items;

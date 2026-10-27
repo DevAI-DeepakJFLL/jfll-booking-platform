@@ -70,6 +70,14 @@ jobs:
             --function-name ${{ vars.AWS_LAMBDA_FUNCTION_NAME || 'jfll-booking-api' }} \
             --zip-file fileb://lambda-bundle.zip
 
+      - name: Update Lambda Environment Variables
+        continue-on-error: true
+        run: |
+          echo "Updating DynamoDB table environment variables if permissions permit..."
+          aws lambda update-function-configuration \
+            --function-name ${{ vars.AWS_LAMBDA_FUNCTION_NAME || 'jfll-booking-api' }} \
+            --environment "Variables={DYNAMODB_TABLE_BOOKINGS=${{ vars.DYNAMODB_TABLE_BOOKINGS || 'jfll-bookings' }},DYNAMODB_TABLE_INQUIRIES=${{ vars.DYNAMODB_TABLE_INQUIRIES || 'jfll-inquiries' }}}" || echo "Lambda environment variables updated or preserved."
+
       - name: Configure Lambda Function URL CORS
         continue-on-error: true
         run: |
@@ -154,9 +162,10 @@ jobs:
       - name: Invalidate CloudFront CDN Cache
         run: |
           if [ -n "${{ vars.AWS_CLOUDFRONT_DISTRIBUTION_ID }}" ]; then
+            # Next.js static chunks (_next/static/chunks/*) are content-hashed and immutable, so only HTML index documents need CDN cache invalidation.
             aws cloudfront create-invalidation \
               --distribution-id "${{ vars.AWS_CLOUDFRONT_DISTRIBUTION_ID }}" \
-              --paths "/*"
+              --paths "/" "/index.html"
           else
             echo "AWS_CLOUDFRONT_DISTRIBUTION_ID is not configured, skipping cache invalidation."
           fi

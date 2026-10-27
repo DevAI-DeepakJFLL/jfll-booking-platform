@@ -33,10 +33,29 @@ if (fs.existsSync(csvPath)) {
   const lines = content.trim().split('\n');
   const headers = lines[0].split(',').map((h) => h.trim());
   for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(',');
+    const cols = lines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || lines[i].split(',');
+    let safeCols = cols;
+    if (cols.length !== headers.length) {
+      const parsed = [];
+      let cur = '';
+      let inQuotes = false;
+      for (let j = 0; j < lines[i].length; j++) {
+        const ch = lines[i][j];
+        if (ch === '"') inQuotes = !inQuotes;
+        else if (ch === ',' && !inQuotes) {
+          parsed.push(cur);
+          cur = '';
+        } else {
+          cur += ch;
+        }
+      }
+      parsed.push(cur);
+      safeCols = parsed;
+    }
     const obj = {};
     headers.forEach((h, idx) => {
-      obj[h] = cols[idx]?.trim() || '';
+      const rawVal = safeCols[idx];
+      obj[h] = rawVal !== undefined ? String(rawVal).replace(/^"|"$/g, '').trim() : '';
     });
     rates.push(obj);
   }
@@ -283,6 +302,42 @@ export async function handler(event) {
     }
 
     return { statusCode: 405, headers: COMMON_HEADERS, body: JSON.stringify({ error: 'Method Not Allowed' }) };
+  }
+
+  // 5. GET /api/admin/export
+  if (path === '/api/admin/export') {
+    const adminKey = process.env.ADMIN_API_KEY;
+    if (process.env.NODE_ENV === 'production' && !adminKey) {
+      return {
+        statusCode: 503,
+        headers: COMMON_HEADERS,
+        body: JSON.stringify({ error: 'Admin export disabled: ADMIN_API_KEY not configured' }),
+      };
+    }
+
+    if (adminKey) {
+      const authHeader =
+        event.headers?.['authorization'] ||
+        event.headers?.['Authorization'] ||
+        event.headers?.['x-admin-key'] ||
+        event.headers?.['X-Admin-Key'] ||
+        '';
+      const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+      if (token !== adminKey) {
+        return {
+          statusCode: 401,
+          headers: COMMON_HEADERS,
+          body: JSON.stringify({ error: 'Unauthorized: Invalid administrative credentials' }),
+        };
+      }
+    }
+
+    const [bookings, inquiries] = await Promise.all([loadBookings(), loadInquiries()]);
+    return {
+      statusCode: 200,
+      headers: COMMON_HEADERS,
+      body: JSON.stringify({ success: true, bookings, inquiries }),
+    };
   }
 
   // 404 Fallback
