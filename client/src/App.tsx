@@ -474,6 +474,11 @@ function App() {
   const [reference, setReference] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [dgAccepted, setDgAccepted] = useState(false);
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<{
+    status: 'idle' | 'syncing' | 'synced' | 'error';
+    message?: string;
+    messageId?: string;
+  }>({ status: 'idle' });
 
   // Physics calculations (IATA Volumetric standard)
   const actualWeight = Number(quote.weight) || 0;
@@ -853,7 +858,12 @@ function App() {
     setActiveStep(3);
     window.setTimeout(() => scrollToQuote(), 50);
 
-    // Asynchronously notify backend API / Floci persistence
+    // Asynchronously notify backend API / cloud persistence
+    setCloudSyncStatus({
+      status: 'syncing',
+      message: 'Persisting booking to AWS DynamoDB & dispatching confirmation email...',
+    });
+
     try {
       const backendUrl = getApiEndpoint('/api/bookings');
       console.log('[Booking API] Submitting booking request to:', backendUrl);
@@ -903,23 +913,33 @@ function App() {
           if (!res.ok) {
             const errText = await res.text();
             console.error(`[Booking API] Server returned HTTP ${res.status}:`, errText);
+            setCloudSyncStatus({
+              status: 'error',
+              message: `Server returned HTTP ${res.status}: ${errText}`,
+            });
             return;
           }
           const data = await res.json();
           console.log('[Booking API] Booking successfully saved on backend:', data);
-          if (data.emailDelivery) {
-            if (data.emailDelivery.success) {
-              console.log('[Booking API] Email dispatched successfully:', data.emailDelivery);
-            } else {
-              console.warn('[Booking API] Email dispatch issue:', data.emailDelivery);
-            }
-          }
+          setCloudSyncStatus({
+            status: 'synced',
+            message: 'Saved durably to Amazon DynamoDB.',
+            messageId: data.emailDelivery?.messageId || (data.emailDelivery?.success ? 'Dispatched' : undefined),
+          });
         })
         .catch((err) => {
           console.error('[Booking API] Network error during booking dispatch:', err);
+          setCloudSyncStatus({
+            status: 'error',
+            message: `Connection error: ${err.message || 'Failed to reach cloud endpoint'}`,
+          });
         });
-    } catch (err) {
+    } catch (err: any) {
       console.error('[Booking API] Failed to trigger booking notification:', err);
+      setCloudSyncStatus({
+        status: 'error',
+        message: `Failed to dispatch: ${err.message || String(err)}`,
+      });
     }
   };
 
@@ -2588,6 +2608,33 @@ function App() {
                         <span className="text-[#908e92]">Carrier</span>
                         <strong className="text-right text-[#101820]">{selectedRate?.carrier || 'Carrier Partner'}</strong>
                       </div>
+
+                      {/* Live Cloud Persistence & Email Status Indicator */}
+                      {cloudSyncStatus.status === 'syncing' && (
+                        <div className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-amber-50/80 p-2.5 text-[11px] font-semibold text-amber-800 border border-amber-200/80">
+                          <div className="h-3 w-3 animate-spin rounded-full border-2 border-amber-700 border-t-transparent shrink-0" />
+                          <span>{cloudSyncStatus.message}</span>
+                        </div>
+                      )}
+                      {cloudSyncStatus.status === 'synced' && (
+                        <div className="mt-4 flex flex-col items-center gap-1 rounded-xl bg-emerald-50/80 p-2.5 text-[11px] font-semibold text-emerald-800 border border-emerald-200/80 text-center">
+                          <div className="flex items-center gap-1.5">
+                            <Check size={14} className="text-emerald-700" />
+                            <span>{cloudSyncStatus.message}</span>
+                          </div>
+                          {cloudSyncStatus.messageId && (
+                            <span className="font-mono text-[10px] text-emerald-600">
+                              Gmail Notification ID: {cloudSyncStatus.messageId}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {cloudSyncStatus.status === 'error' && (
+                        <div className="mt-4 flex flex-col items-center gap-1 rounded-xl bg-rose-50/80 p-2.5 text-[11px] font-semibold text-rose-800 border border-rose-200/80 text-center">
+                          <span className="font-bold">Cloud Sync Alert</span>
+                          <span className="text-[10px] text-rose-700">{cloudSyncStatus.message}</span>
+                        </div>
+                      )}
                     </div>
 
                     <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">

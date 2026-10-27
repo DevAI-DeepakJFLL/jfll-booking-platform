@@ -7,20 +7,22 @@ export function cn(...inputs: ClassValue[]) {
 
 /**
  * Resolves the target API URL for backend calls across local dev and deployed environments.
- * Automatically strips trailing slashes to prevent route mismatch errors (e.g. //api/bookings).
+ * Points to the live AWS Lambda Function URL by default so that both local UI and deployed UI
+ * reliably persist to DynamoDB and dispatch emails.
  */
 export function getApiEndpoint(endpoint: string): string {
-  const isLocal =
-    typeof window !== 'undefined' &&
-    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
-    window.location.port !== '4000';
+  const liveLambdaBase = 'https://52dp2vnbdlsogsjjqgm6oxsvgy0ladtt.lambda-url.ap-southeast-2.on.aws';
 
-  if (isLocal) {
+  // Support explicit local override via ?api=local query param or env
+  const isExplicitLocal =
+    (typeof window !== 'undefined' && window.location.search.includes('api=local')) ||
+    process.env.NEXT_PUBLIC_API_URL === 'local';
+
+  if (isExplicitLocal) {
     return `http://localhost:4000${endpoint}`;
   }
 
-  const fallbackProdBase = 'https://52dp2vnbdlsogsjjqgm6oxsvgy0ladtt.lambda-url.ap-southeast-2.on.aws';
-  const rawBase = process.env.NEXT_PUBLIC_API_URL || fallbackProdBase;
+  const rawBase = process.env.NEXT_PUBLIC_API_URL || liveLambdaBase;
   const cleanBase = rawBase.replace(/\/+$/, '');
   return cleanBase ? `${cleanBase}${endpoint}` : endpoint;
 }
