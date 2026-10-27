@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node ./standalone-api.mjs",
     "build": "echo 'No build required for native ESM'",
-    "bundle:lambda": "rm -f lambda.zip && zip -r lambda.zip lambda.mjs package.json lib data",
+    "bundle:lambda": "rm -f lambda.zip && zip -r lambda.zip lambda.mjs package.json lib data/CONSOLIDATED_AIR_FREIGHT_RATES.csv",
     "start": "node ./standalone-api.mjs",
     "test": "node --test tests/*.test.mjs"
   },

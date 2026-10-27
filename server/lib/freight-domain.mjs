@@ -346,7 +346,7 @@ export function calculateQuote({ origin, destination, actualWeight, volumetricWe
     }
 
     return {
-      id: `floci-rate-${idx}`,
+      id: `rate-${idx}`,
       carrier: formatAirlineName(r.airline),
       carrierCode: r.carrier_code,
       prefix: r.prefix,
