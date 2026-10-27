@@ -135,9 +135,14 @@ jobs:
 
       - name: Build Next.js Production Bundle
         working-directory: ./client
-        env:
-          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL || secrets.NEXT_PUBLIC_API_URL || 'https://52dp2vnbdlsogsjjqgm6oxsvgy0ladtt.lambda-url.ap-southeast-2.on.aws' }}
-        run: pnpm run build
+        run: |
+          RAW_URL="${{ vars.NEXT_PUBLIC_API_URL || secrets.NEXT_PUBLIC_API_URL || 'https://52dp2vnbdlsogsjjqgm6oxsvgy0ladtt.lambda-url.ap-southeast-2.on.aws' }}"
+          CLEAN_URL=$(echo "$RAW_URL" | grep -o -E 'https://[a-zA-Z0-9.-]+\.on\.aws' | head -n 1)
+          if [ -z "$CLEAN_URL" ]; then
+            CLEAN_URL="https://52dp2vnbdlsogsjjqgm6oxsvgy0ladtt.lambda-url.ap-southeast-2.on.aws"
+          fi
+          echo "Sanitized Next.js API URL: $CLEAN_URL"
+          NEXT_PUBLIC_API_URL="$CLEAN_URL" pnpm run build
 
       - name: Sync Static Assets to S3
         run: |
