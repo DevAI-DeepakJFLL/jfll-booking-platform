@@ -109,8 +109,9 @@ export const HeavyCargoInquiry: React.FC<HeavyCargoInquiryProps> = ({
         specialInstructions: formData.specialInstructions.trim(),
       });
       setSubmissionResult(res);
-    } catch (err: any) {
-      setError(err?.message || 'Failed to submit inquiry. Please try again or call our direct desk.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to submit inquiry. Please try again or call our direct desk.';
+      setError(msg);
     } finally {
       setIsSubmitting(false);
     }

@@ -85,7 +85,7 @@ export interface HeavyCargoInquiryResponse {
   status: string;
   estimatedResponseTime: string;
   message: string;
-  data?: any;
+  data?: Record<string, unknown>;
 }
 
 /**
@@ -196,7 +196,7 @@ export async function submitHeavyCargoInquiry(
     }
     const errData = await res.json().catch(() => ({}));
     throw new Error(errData.error || 'Failed to submit heavy cargo inquiry');
-  } catch (err: any) {
+  } catch {
     // Graceful offline fallback
     const fallbackRef = `JFLL-RFQ-2026-${Math.floor(10000 + Math.random() * 90000)}`;
     return {

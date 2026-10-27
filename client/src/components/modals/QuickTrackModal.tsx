@@ -21,21 +21,21 @@ export interface ShipmentRecordSummary {
   }>;
 }
 
-export interface QuickTrackModalProps {
+export interface QuickTrackModalProps<T extends ShipmentRecordSummary = ShipmentRecordSummary> {
   isOpen: boolean;
   onClose: () => void;
-  shipmentsList: ShipmentRecordSummary[];
-  onSelectShipment: (shipment: any) => void;
+  shipmentsList: T[];
+  onSelectShipment: (shipment: T) => void;
 }
 
-export function QuickTrackModal({
+export function QuickTrackModal<T extends ShipmentRecordSummary = ShipmentRecordSummary>({
   isOpen,
   onClose,
   shipmentsList,
   onSelectShipment,
-}: QuickTrackModalProps) {
+}: QuickTrackModalProps<T>) {
   const [trackQuery, setTrackQuery] = useState('');
-  const [trackResult, setTrackResult] = useState<ShipmentRecordSummary | null>(null);
+  const [trackResult, setTrackResult] = useState<T | null>(null);
 
   const handleLookup = (e?: React.FormEvent) => {
     if (e) e.preventDefault();

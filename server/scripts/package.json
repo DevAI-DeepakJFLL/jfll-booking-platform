@@ -4,12 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "hello": "tsx ./src/hello.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "test:email": "node ./test-email.mjs",
+    "verify:persistence": "node ./verify-persistence.mjs"
   },
   "devDependencies": {
-    "@types/node": "catalog:",
-    "tsx": "catalog:",
-    "typescript": "5.8.2"
+    "@types/node": "catalog:"
   }
 }

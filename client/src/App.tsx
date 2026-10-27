@@ -42,10 +42,15 @@ import {
 } from './lib/freight-domain';
 import { getApiEndpoint } from './lib/utils';
 import { AirlineLogo } from './components/AirlineLogo';
+import { Logo, AtlasAircraft } from './components/common/BrandAssets';
 import { QuickTrackModal } from './components/modals/QuickTrackModal';
 import { DocumentPreviewModal } from './components/modals/DocumentPreviewModal';
 import { HeavyCargoInquiry } from './components/rates/HeavyCargoInquiry';
+import { BookingConfirmation } from './components/booking/BookingConfirmation';
+import { OperationsDashboard } from './components/operations/OperationsDashboard';
 import { Field, StyledSelect, CustomDatePicker } from './components/form/FormControls';
+import { destLocations, locations, cargoCategoryOptions } from './data/locations';
+import { mockShipments } from './data/mock-shipments';
 import type {
   CargoType,
   QuoteForm,
@@ -74,273 +79,6 @@ export type {
   ShipmentRecord,
   DocumentPreview,
 };
-
-/* ==========================================================================
-   STATIC DATA & CATALOG
-   ========================================================================== */
-
-const destLocations = [
-  { code: 'DXB', city: 'Dubai', airport: 'Dubai International Airport' },
-  { code: 'SHA', city: 'Shanghai', airport: 'Shanghai Pudong International Airport' },
-];
-
-const locations = [
-  { code: 'BOM', city: 'Mumbai', airport: 'Chhatrapati Shivaji Maharaj Intl' },
-  { code: 'DXB', city: 'Dubai', airport: 'Dubai International' },
-  { code: 'SHA', city: 'Shanghai', airport: 'Pudong International' },
-  { code: 'DEL', city: 'Delhi', airport: 'Indira Gandhi International' },
-  { code: 'BLR', city: 'Bangalore', airport: 'Kempegowda International' },
-  { code: 'AMD', city: 'Ahmedabad', airport: 'Sardar Vallabhbhai Patel Intl' },
-  { code: 'MAA', city: 'Chennai', airport: 'Chennai International' },
-  { code: 'LHR', city: 'London', airport: 'Heathrow Airport' },
-  { code: 'JFK', city: 'New York', airport: 'John F. Kennedy Intl' },
-  { code: 'FRA', city: 'Frankfurt', airport: 'Frankfurt Airport' },
-  { code: 'SIN', city: 'Singapore', airport: 'Changi Airport' },
-  { code: 'LOS', city: 'Lagos', airport: 'Murtala Muhammed Intl' },
-];
-
-const cargoCategoryOptions = [
-  { value: 'General cargo', label: 'General Cargo (Standard Freight / Consolidated)' },
-  { value: 'Express courier', label: 'Express Courier (Priority Uplift / High Speed)' },
-  { value: 'Pharma healthcare', label: 'Pharma Healthcare (Temperature Controlled / Cool Chain)' },
-  { value: 'Dangerous goods', label: 'Dangerous Goods (DGR / Hazmat / Lithium Batteries)' },
-  { value: 'Perishables', label: 'Perishables (Cold Storage / Fresh Food / Flowers)' },
-];
-
-const mockShipments: ShipmentRecord[] = [
-  {
-    reference: 'JFLL-AE-2026-04815',
-    awbNumber: '176-9283-4011',
-    carrier: 'Emirates SkyCargo',
-    flight: 'EK 509',
-    origin: 'BOM',
-    destination: 'DXB',
-    chargeableWeight: 240,
-    commodity: 'Cotton knitted garments & samples',
-    status: 'Booking Confirmed - AWB pending',
-    statusStep: 1,
-    readyDate: '27-08-2026',
-    cutoff: '26 Aug, 18:00',
-    totalAmount: 79000,
-    pickupRequired: true,
-    milestones: [
-      {
-        title: 'Booking Confirmed',
-        description: 'Job file opened with operations desk · Rate secured',
-        timestamp: '25 Aug 2026, 11:30 IST',
-        completed: true,
-      },
-      {
-        title: 'AWB Generation & Verification',
-        description: 'Master AWB drafting in progress · Verified against customs checklist',
-        timestamp: 'Estimated within 2 working hours',
-        completed: false,
-        current: true,
-      },
-      {
-        title: 'Cargo Tender at BOM Warehouse',
-        description: 'Delivery to Sahar Cargo Complex, Gate 4 before cutoff',
-        timestamp: '26 Aug 2026, by 18:00 IST',
-        completed: false,
-      },
-      {
-        title: 'Customs Clearance (LEO Issued)',
-        description: 'Shipping bill verification & EDI Let Export Order endorsement',
-        timestamp: '26 Aug 2026, 21:00 IST',
-        completed: false,
-      },
-      {
-        title: 'Flight Departure (EK 509)',
-        description: 'Depart Mumbai (BOM) en route to Dubai (DXB)',
-        timestamp: '27 Aug 2026, 04:30 IST',
-        completed: false,
-      },
-      {
-        title: 'Destination Arrival & Consignee Handover',
-        description: 'Arrived DXB Cargo Terminal · Ready for consignee pickup',
-        timestamp: '27 Aug 2026, 06:45 GST',
-        completed: false,
-      },
-    ],
-  },
-  {
-    reference: 'JFLL-AE-2026-04790',
-    awbNumber: '020-4491-8820',
-    carrier: 'Lufthansa Cargo',
-    flight: 'LH 757',
-    origin: 'BOM',
-    destination: 'FRA',
-    chargeableWeight: 520,
-    commodity: 'Precision auto electrical components',
-    status: 'Cargo Tendered at BOM',
-    statusStep: 2,
-    readyDate: '24-08-2026',
-    cutoff: '24 Aug, 16:00',
-    totalAmount: 184500,
-    pickupRequired: false,
-    milestones: [
-      {
-        title: 'Booking Confirmed',
-        description: 'Job file validated with Lufthansa allotment',
-        timestamp: '23 Aug 2026, 14:10 IST',
-        completed: true,
-      },
-      {
-        title: 'AWB Generation & Verification',
-        description: 'Master AWB 020-4491-8820 issued and signed',
-        timestamp: '23 Aug 2026, 16:45 IST',
-        completed: true,
-      },
-      {
-        title: 'Cargo Tender at BOM Warehouse',
-        description: 'Delivered Sahar Cargo Complex Gate 3 · Security scanned',
-        timestamp: '24 Aug 2026, 15:30 IST',
-        completed: true,
-        current: true,
-      },
-      {
-        title: 'Customs Clearance (LEO Issued)',
-        description: 'EDI validation pending Customs Officer signature',
-        timestamp: 'Expected 24 Aug 2026, 20:00 IST',
-        completed: false,
-      },
-      {
-        title: 'Flight Departure (LH 757)',
-        description: 'Scheduled departure BOM to FRA',
-        timestamp: '25 Aug 2026, 01:50 IST',
-        completed: false,
-      },
-      {
-        title: 'Destination Arrival & Consignee Handover',
-        description: 'Frankfurt Cargo City South pickup terminal',
-        timestamp: '25 Aug 2026, 07:15 CET',
-        completed: false,
-      },
-    ],
-  },
-  {
-    reference: 'JFLL-AE-2026-04610',
-    awbNumber: '098-1120-7741',
-    carrier: 'Air India Cargo',
-    flight: 'AI 161',
-    origin: 'DEL',
-    destination: 'LHR',
-    chargeableWeight: 840,
-    commodity: 'Active pharmaceutical ingredients (cold chain 15-25C)',
-    status: 'In Flight to London',
-    statusStep: 5,
-    readyDate: '22-08-2026',
-    cutoff: '22 Aug, 19:00',
-    totalAmount: 312000,
-    pickupRequired: true,
-    milestones: [
-      {
-        title: 'Booking Confirmed',
-        description: 'Temperature-controlled space locked',
-        timestamp: '21 Aug 2026, 09:00 IST',
-        completed: true,
-      },
-      {
-        title: 'AWB Generation & Verification',
-        description: 'e-AWB transmitted to Heathrow Border Force',
-        timestamp: '21 Aug 2026, 11:20 IST',
-        completed: true,
-      },
-      {
-        title: 'Cargo Tender at IGI Terminal',
-        description: 'Tendered in active Envirotainer unit',
-        timestamp: '22 Aug 2026, 18:30 IST',
-        completed: true,
-      },
-      {
-        title: 'Customs Clearance (LEO Issued)',
-        description: 'LEO issued via ICES 2.0 system',
-        timestamp: '22 Aug 2026, 21:15 IST',
-        completed: true,
-      },
-      {
-        title: 'Flight Departure (AI 161)',
-        description: 'Airborne over European airspace',
-        timestamp: '23 Aug 2026, 02:45 IST',
-        completed: true,
-        current: true,
-      },
-      {
-        title: 'Destination Arrival & Consignee Handover',
-        description: 'Heathrow World Cargo Centre ramp bay',
-        timestamp: 'Estimated 23 Aug 2026, 07:30 GMT',
-        completed: false,
-      },
-    ],
-  },
-];
-
-/* ==========================================================================
-   UI HELPER COMPONENTS (AUTHENTIC SPECIFICATION)
-   ========================================================================== */
-
-function Logo() {
-  return (
-    <button
-      type="button"
-      onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-      className="flex items-center gap-3 focus-ring text-left cursor-pointer transition hover:opacity-90"
-      data-testid="link-logo"
-      aria-label="Jet Freight Home"
-    >
-      <span className="jet-mark" aria-hidden="true">
-        <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M8 29.5C15.4 28.8 19.8 25.8 22.3 20.3C24.1 16.4 28.6 13.2 36 13" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
-          <path d="M22 7L36 13L29 26" stroke="#23c2f2" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-          <circle cx="12" cy="30" r="2.2" fill="#f2a63d" />
-        </svg>
-      </span>
-      <div>
-        <div className="font-semibold tracking-[-.04em] text-[#16243a]">Jet Freight</div>
-        <div className="tiny-label -mt-0.5 text-[#6c7d85]">Atlas Digital</div>
-      </div>
-    </button>
-  );
-}
-
-function AtlasAircraft() {
-  return (
-    <svg viewBox="0 0 360 560" fill="none" role="img" aria-label="Top-down illustration of a cargo aircraft">
-      <defs>
-        <linearGradient id="aircraftBody" x1="180" y1="24" x2="180" y2="520" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#fffdf6" />
-          <stop offset=".45" stopColor="#dbe7e8" />
-          <stop offset=".72" stopColor="#9ab9c2" />
-          <stop offset="1" stopColor="#f2f0df" />
-        </linearGradient>
-        <linearGradient id="aircraftWing" x1="48" y1="237" x2="312" y2="237" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#9cbfc5" />
-          <stop offset=".5" stopColor="#e9f1ed" />
-          <stop offset="1" stopColor="#9cbfc5" />
-        </linearGradient>
-        <linearGradient id="aircraftTail" x1="180" y1="430" x2="180" y2="541" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#e5f1ea" />
-          <stop offset="1" stopColor="#628e9d" />
-        </linearGradient>
-        <filter id="aircraftShadow" x="16" y="2" width="328" height="552" filterUnits="userSpaceOnUse">
-          <feDropShadow dx="0" dy="14" stdDeviation="9" floodColor="#405b65" floodOpacity=".22" />
-        </filter>
-      </defs>
-      <g filter="url(#aircraftShadow)">
-        <path d="M177.8 20C169.4 28.5 164.6 43.8 163.6 66.3L156.8 214.7L39.5 285.3C34.4 288.4 31.2 294.3 31.2 300.3V312.2L157.3 270.5L153.6 390.4L104.2 432.7C100.2 436.2 98 441.4 98.4 446.7L99.5 456.1L163.1 426.5L180 416.9L196.9 426.5L260.5 456.1L261.6 446.7C262 441.4 259.8 436.2 255.8 432.7L206.4 390.4L202.7 270.5L328.8 312.2V300.3C328.8 294.3 325.6 288.4 320.5 285.3L203.2 214.7L196.4 66.3C195.4 43.8 190.6 28.5 182.2 20C181 18.8 179 18.8 177.8 20Z" fill="url(#aircraftWing)" stroke="#5c8590" strokeWidth="1.2" />
-        <path d="M180 22C166.7 38.9 165.2 64.6 165.5 93.1L169.3 365.4C169.7 396.5 172.7 423.9 180 453.1C187.3 423.9 190.3 396.5 190.7 365.4L194.5 93.1C194.8 64.6 193.3 38.9 180 22Z" fill="url(#aircraftBody)" stroke="#658b94" strokeWidth="1.2" />
-        <path d="M180 453.1L149.4 519.4C147.6 523.3 150.5 527.7 154.8 527.7H205.2C209.5 527.7 212.4 523.3 210.6 519.4L180 453.1Z" fill="url(#aircraftTail)" stroke="#5c8590" strokeWidth="1.2" />
-        <path d="M165.4 232.4L61.7 292.7L157.3 261.2L165.4 232.4ZM194.6 232.4L298.3 292.7L202.7 261.2L194.6 232.4Z" fill="#c7dde0" opacity=".72" />
-        <path d="M180 39V446" stroke="#d8a04d" strokeWidth="2" strokeDasharray="8 8" opacity=".8" />
-        <path d="M174.6 71H185.4M173.8 98H186.2M173.2 125H186.8M172.7 152H187.3" stroke="#496a75" strokeWidth="2" strokeLinecap="round" opacity=".8" />
-        <path d="M163.8 215L180 234L196.2 215" stroke="#456872" strokeWidth="1.4" opacity=".75" />
-        <path d="M163.9 369L180 386L196.1 369" stroke="#456872" strokeWidth="1.4" opacity=".72" />
-        <ellipse cx="180" cy="66" rx="6" ry="13" fill="#294f61" />
-        <path d="M177 64C178 57 182 57 183 64V75H177V64Z" fill="#b7e2e0" />
-      </g>
-    </svg>
-  );
-}
 
 /* ==========================================================================
    MAIN APPLICATION
@@ -635,7 +373,7 @@ function App() {
       return next;
     });
 
-  const updateBooking = (key: keyof BookingForm, value: any) =>
+  const updateBooking = <K extends keyof BookingForm>(key: K, value: BookingForm[K]) =>
     setBooking((current) => ({ ...current, [key]: value }));
 
   const handleAddPieceLine = () => {
@@ -866,7 +604,9 @@ function App() {
 
     try {
       const backendUrl = getApiEndpoint('/api/bookings');
-      console.log('[Booking API] Submitting booking request to:', backendUrl);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[Booking API] Submitting booking request to:', backendUrl);
+      }
 
       fetch(backendUrl, {
         method: 'POST',
@@ -920,7 +660,9 @@ function App() {
             return;
           }
           const data = await res.json();
-          console.log('[Booking API] Booking successfully saved on backend:', data);
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('[Booking API] Booking successfully saved on backend:', data);
+          }
           const isDynamo = data.storage ? data.storage.driver === 'dynamodb' && data.storage.success : true;
           const storageMsg = isDynamo
             ? 'Saved durably to Amazon DynamoDB.'
@@ -2570,101 +2312,20 @@ function App() {
 
                 {/* STEP 3: BOOKED / CONFIRMATION */}
                 {activeStep === 3 && (
-                  <div
-                    key="confirmation"
-                    className="py-8 text-center sm:py-12"
-                  >
-                    <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#e4f5ef] text-[#176579]">
-                      <CheckCircle2 size={34} />
-                    </div>
-                    <div className="section-kicker mt-7">Booking request confirmed</div>
-                    <h3 className="mt-3 text-3xl font-semibold tracking-[-.05em] text-[#101820]">
-                      You are cleared for take-off.
-                    </h3>
-                    <p className="mx-auto mt-4 max-w-[475px] leading-6 text-[#65686d] text-sm">
-                      We have sent your confirmation to {booking.shipperEmail}. Operations will issue your airway bill within two business hours.
-                    </p>
-
-                    <div className="mx-auto mt-7 max-w-[440px] rounded-2xl bg-[#f4f7f8] p-5 text-left border border-[#dfe5e7]">
-                      <div className="font-mulish text-[10px] font-extrabold uppercase tracking-[.14em] text-[#908e92]">
-                        Booking Reference
-                      </div>
-                      <div className="mt-2 flex items-center justify-between gap-3">
-                        <strong className="text-lg sm:text-2xl font-mono tracking-tight text-[#101820] truncate shrink min-w-0">{reference}</strong>
-                        <button
-                          type="button"
-                          onClick={handleCopyReference}
-                          className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold text-[#64748b] hover:bg-[#e4ebed] hover:text-[#101820] transition cursor-pointer shrink-0 min-h-[36px]"
-                          title="Copy reference"
-                        >
-                          {copiedReference ? (
-                            <>
-                              <Check size={15} className="text-[#176579]" />
-                              <span className="text-[#176579] font-bold">Copied!</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy size={15} />
-                              <span>Copy</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-                      <div className="mt-4 grid grid-cols-2 gap-3 border-t border-[#dfe5e7] pt-4 font-mulish text-[11px]">
-                        <span className="text-[#908e92]">Route</span>
-                        <strong className="text-right text-[#101820]">{quote.origin} &rarr; {quote.destination}</strong>
-                        <span className="text-[#908e92]">Carrier</span>
-                        <strong className="text-right text-[#101820]">{selectedRate?.carrier || 'Carrier Partner'}</strong>
-                      </div>
-
-                      {/* Live Cloud Persistence & Email Status Indicator */}
-                      {cloudSyncStatus.status === 'syncing' && (
-                        <div className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-amber-50/80 p-2.5 text-[11px] font-semibold text-amber-800 border border-amber-200/80">
-                          <div className="h-3 w-3 animate-spin rounded-full border-2 border-amber-700 border-t-transparent shrink-0" />
-                          <span>{cloudSyncStatus.message}</span>
-                        </div>
-                      )}
-                      {cloudSyncStatus.status === 'synced' && (
-                        <div className="mt-4 flex flex-col items-center gap-1 rounded-xl bg-emerald-50/80 p-2.5 text-[11px] font-semibold text-emerald-800 border border-emerald-200/80 text-center">
-                          <div className="flex items-center gap-1.5">
-                            <Check size={14} className="text-emerald-700" />
-                            <span>{cloudSyncStatus.message}</span>
-                          </div>
-                          {cloudSyncStatus.messageId && (
-                            <span className="font-mono text-[10px] text-emerald-600">
-                              Gmail Notification ID: {cloudSyncStatus.messageId}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                      {cloudSyncStatus.status === 'error' && (
-                        <div className="mt-4 flex flex-col items-center gap-1 rounded-xl bg-rose-50/80 p-2.5 text-[11px] font-semibold text-rose-800 border border-rose-200/80 text-center">
-                          <span className="font-bold">Cloud Sync Alert</span>
-                          <span className="text-[10px] text-rose-700">{cloudSyncStatus.message}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-                      <button
-                        onClick={() => {
-                          scrollToSection('shipments');
-                        }}
-                        className="focus-ring rounded-full bg-[#101820] px-6 py-3 font-mulish text-[12px] font-extrabold text-white hover:bg-[#263740]"
-                      >
-                        Go to Operations Console
-                      </button>
-                      <button
-                        onClick={() => {
-                          setActiveStep(0);
-                          scrollToQuote();
-                        }}
-                        className="focus-ring rounded-full border border-[#c7c6c8] px-6 py-3 font-mulish text-[12px] font-extrabold text-[#101820] hover:bg-[#f4f7f8]"
-                      >
-                        Start another quote
-                      </button>
-                    </div>
-                  </div>
+                  <BookingConfirmation
+                    booking={booking}
+                    reference={reference}
+                    quote={quote}
+                    selectedRate={selectedRate}
+                    copiedReference={copiedReference}
+                    onCopyReference={handleCopyReference}
+                    cloudSyncStatus={cloudSyncStatus}
+                    onGoToOperations={() => scrollToSection('shipments')}
+                    onStartAnotherQuote={() => {
+                      setActiveStep(0);
+                      scrollToQuote();
+                    }}
+                  />
                 )}
               </>
             </div>
@@ -2979,287 +2640,20 @@ function App() {
         {/* ====================================================================
             NEW SECTION: SHIPMENT OPERATIONS CONSOLE (MY SHIPMENTS)
             ==================================================================== */}
-        <section id="shipments" className="scroll-mt-5 bg-white py-20 md:py-28 border-t border-[#dfe5e7]">
-          <div className="atlas-container">
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
-              <div>
-                <span className="section-kicker">Live Shipment Operations</span>
-                <h2 className="mt-2 text-3xl font-semibold tracking-[-.055em] text-[#16243a] sm:text-4xl">
-                  Air Export Operations Console
-                </h2>
-                <p className="mt-2 text-sm text-[#65686d]">
-                  Direct digital handoff: track milestones, monitor airline cargo cutoffs, and retrieve legal documents.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                {isContractUser && (
-                  <div className="hidden sm:flex items-center gap-2 rounded-full border border-[#d4e9e3] bg-[#eef8f5] px-3.5 py-1.5 font-mulish text-xs font-extrabold text-[#176579]">
-                    <Building2 size={13} className="text-[#187e9c]" />
-                    <span className="truncate max-w-[150px]">{contractCompanyName}</span>
-                  </div>
-                )}
-                <button
-                  onClick={openTrackModal}
-                  className="focus-ring rounded-full border border-[#dfe5e7] bg-white px-4 py-2.5 font-mulish text-xs font-extrabold text-[#16243a] transition hover:bg-[#f4f7f8] flex items-center gap-1.5"
-                >
-                  <Search size={13} className="text-[#187e9c]" />
-                  <span>Quick Track AWB</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setActiveStep(0);
-                    scrollToQuote();
-                  }}
-                  className="focus-ring rounded-full bg-[#101820] px-5 py-2.5 font-mulish text-xs font-extrabold text-white transition hover:bg-[#263740] flex items-center gap-2"
-                >
-                  <Plus size={14} className="text-[#f2a63d]" />
-                  <span>Book New Shipment</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Operations Console Container */}
-            <div className="space-y-6">
-                {/* KPI Stat Cards */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                  {[
-                    { label: 'Active Shipments', val: `${shipmentsList.length}`, sub: 'Air export corridors' },
-                    { label: 'AWB Pending', val: '1', sub: 'Within 2h SLA window' },
-                    { label: 'In Transit', val: '1', sub: 'DEL → LHR (AI 161)' },
-                    { label: 'Customs Cleared', val: '1', sub: 'LEO Endorsed' },
-                  ].map((stat, i) => (
-                    <div key={i} className="rounded-2xl border border-[#dfe5e7] bg-[#f8fbfa] p-5 shadow-xs">
-                      <span className="font-mulish text-[10px] font-extrabold uppercase tracking-wider text-[#908e92]">
-                        {stat.label}
-                      </span>
-                      <div className="text-2xl font-black text-[#101820] mt-1">{stat.val}</div>
-                      <span className="font-mulish text-[11px] text-[#556972] mt-0.5 block">{stat.sub}</span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Master-Detail Console Grid */}
-                <div className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_1.3fr]">
-                  {/* Left Column: Active Bookings */}
-                  <div className="rounded-2xl border border-[#dfe5e7] bg-white p-6 shadow-xs">
-                    <div className="flex items-center justify-between mb-4 border-b border-[#eef2f3] pb-3">
-                      <h3 className="font-extrabold text-base text-[#101820]">Active Bookings</h3>
-                      <span className="font-mulish text-xs text-[#908e92]">Showing recent export jobs</span>
-                    </div>
-
-                    <div className="space-y-3">
-                      {shipmentsList.map((shipment) => {
-                        const isSelected = selectedShipment.reference === shipment.reference;
-                        return (
-                          <div
-                            key={shipment.reference}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => setSelectedShipment(shipment)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                setSelectedShipment(shipment);
-                              }
-                            }}
-                            className={`rounded-xl border p-4 cursor-pointer transition text-left ${
-                              isSelected
-                                ? 'border-[#187e9c] bg-[#f8fbfa] shadow-xs ring-1 ring-[#187e9c]'
-                                : 'border-[#dfe5e7] bg-white hover:border-[#187e9c]/40 hover:bg-[#fafbfb]'
-                            }`}
-                            title={`Select shipment ${shipment.reference}`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="font-mulish text-xs font-black text-[#187e9c]">
-                                {shipment.reference}
-                              </span>
-                              <span
-                                className={`rounded-full px-2.5 py-0.5 font-mulish text-[10px] font-extrabold uppercase ${
-                                  shipment.status.includes('pending')
-                                    ? 'bg-[#fff4e4] text-[#8b5717]'
-                                    : shipment.status.includes('Flight')
-                                    ? 'bg-[#eaf9fd] text-[#187e9c]'
-                                    : 'bg-[#eef8f5] text-[#176579]'
-                                }`}
-                              >
-                                {shipment.status}
-                              </span>
-                            </div>
-
-                            <div className="mt-2.5 flex items-center justify-between gap-3">
-                              <div className="flex items-center gap-2.5 min-w-0">
-                                <AirlineLogo
-                                  carrier={shipment.carrier}
-                                  className="h-8 w-8"
-                                />
-                                <div className="min-w-0">
-                                  <strong className="text-sm text-[#101820] block truncate">
-                                    {shipment.origin} &rarr; {shipment.destination} &middot; {shipment.carrier}
-                                  </strong>
-                                  <span className="block font-mulish text-xs text-[#65686d] mt-0.5 truncate">
-                                    Flight {shipment.flight} &middot; {shipment.chargeableWeight} kg &middot; {shipment.commodity}
-                                  </span>
-                                </div>
-                              </div>
-                              <span className="text-sm font-extrabold text-[#101820] shrink-0">
-                                {formatInr(shipment.totalAmount)}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Right Column: Selected Shipment Detail */}
-                  <div className="rounded-2xl border border-[#dfe5e7] bg-white p-6 shadow-xs">
-                    <div className="border-b border-[#eef2f3] pb-4">
-                      <div className="flex items-center justify-between">
-                        <span className="font-mulish text-xs font-extrabold uppercase text-[#908e92]">
-                          Live Tracking Detail
-                        </span>
-                        <span className="font-mulish text-xs font-bold text-[#187e9c] bg-[#eef8f5] px-2.5 py-1 rounded-md">
-                          AWB: {selectedShipment.awbNumber}
-                        </span>
-                      </div>
-                      <div className="mt-3 flex items-center gap-3">
-                        <AirlineLogo
-                          carrier={selectedShipment.carrier}
-                          className="h-10 w-10"
-                        />
-                        <div>
-                          <h3 className="text-lg font-extrabold text-[#101820]">
-                            {selectedShipment.origin} &rarr; {selectedShipment.destination} ({selectedShipment.carrier} {selectedShipment.flight})
-                          </h3>
-                          <div className="mt-0.5 flex items-center gap-3 font-mulish text-xs text-[#65686d]">
-                            <span>Ready: {selectedShipment.readyDate}</span>
-                            <span>&middot;</span>
-                            <span>Cutoff: {selectedShipment.cutoff}</span>
-                            <span>&middot;</span>
-                            <span className="font-bold text-[#101820]">{selectedShipment.chargeableWeight} kg Chargeable</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Milestones Stepper */}
-                    <div className="mt-6">
-                      <div className="font-mulish text-[11px] font-extrabold uppercase tracking-wider text-[#908e92] mb-4">
-                        Operational Milestones
-                      </div>
-                      <div className="relative pl-6 space-y-5 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-[#dfe5e7]">
-                        {selectedShipment.milestones.map((m, idx) => (
-                          <div key={idx} className="relative font-mulish text-xs">
-                            <span
-                              className={`absolute -left-6 top-0.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white ${
-                                m.completed
-                                  ? 'bg-[#187e9c] text-white'
-                                  : m.current
-                                  ? 'bg-[#f2a63d] text-[#101820] font-bold ring-2 ring-[#f2a63d]/30'
-                                  : 'bg-[#e2e5e6] text-[#908e92]'
-                              }`}
-                            >
-                              {m.completed ? <Check size={12} /> : idx + 1}
-                            </span>
-                            <div>
-                              <div className="flex items-center justify-between">
-                                <strong className={`text-sm ${m.current ? 'text-[#187e9c]' : 'text-[#101820]'}`}>
-                                  {m.title}
-                                </strong>
-                                <span className="text-[10px] text-[#908e92]">{m.timestamp}</span>
-                              </div>
-                              <p className="text-[#65686d] text-xs mt-0.5">{m.description}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Document Actions */}
-                    <div className="mt-8 border-t border-[#eef2f3] pt-5">
-                      <div className="font-mulish text-[11px] font-extrabold uppercase tracking-wider text-[#908e92] mb-3">
-                        Digital Shipment Documents
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <button
-                          onClick={() =>
-                            setActiveDocumentPreview({
-                              title: `Air Waybill Draft (${selectedShipment.awbNumber})`,
-                              type: 'Master Air Waybill (e-AWB)',
-                              reference: selectedShipment.reference,
-                            })
-                          }
-                          className="flex items-center gap-2.5 rounded-xl border border-[#dfe5e7] p-3 text-left font-mulish text-xs transition hover:bg-[#f4f7f8] hover:border-[#187e9c]"
-                        >
-                          <FileText size={18} className="text-[#187e9c] shrink-0" />
-                          <div>
-                            <span className="block font-bold text-[#101820]">MAWB Draft</span>
-                            <span className="text-[10px] text-[#65686d]">PDF preview</span>
-                          </div>
-                        </button>
-
-                        <button
-                          onClick={() =>
-                            setActiveDocumentPreview({
-                              title: `GST Tax Invoice (INV-${selectedShipment.reference})`,
-                              type: 'Official GST E-Invoice (IRN verified)',
-                              reference: selectedShipment.reference,
-                            })
-                          }
-                          className="flex items-center gap-2.5 rounded-xl border border-[#dfe5e7] p-3 text-left font-mulish text-xs transition hover:bg-[#f4f7f8] hover:border-[#187e9c]"
-                        >
-                          <FileCheck size={18} className="text-[#176579] shrink-0" />
-                          <div>
-                            <span className="block font-bold text-[#101820]">GST E-Invoice</span>
-                            <span className="text-[10px] text-[#65686d]">IRN generated</span>
-                          </div>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 3 Operational Capability Pillars */}
-                <div className="grid gap-5 sm:grid-cols-3">
-                  {[
-                    {
-                      icon: <Plane size={20} className="text-[#187e9c]" />,
-                      title: 'Direct ICES Milestone Tracking',
-                      desc: 'Monitor real-time progress from Sahar / IGI Cargo Complex gate intake to EDI Customs Let Export Order (LEO) endorsement and departure.',
-                      badge: 'Real-time telemetry',
-                    },
-                    {
-                      icon: <Clock3 size={20} className="text-[#8b5717]" />,
-                      title: 'Airline Cargo Cutoff Alerts',
-                      desc: 'Strict countdown timers for physical cargo handover and EDI manifest lock-ins, preventing expensive roll-overs and missed flights.',
-                      badge: 'SLA countdowns',
-                    },
-                    {
-                      icon: <FileCheck size={20} className="text-[#176579]" />,
-                      title: 'Digital e-AWB & Tax Invoicing',
-                      desc: 'Direct retrieval of officially stamped Master Air Waybills (e-AWB) and QR-verified GST E-Invoices generated via NIC IRN portals.',
-                      badge: 'Legally binding',
-                    },
-                  ].map((card, i) => (
-                    <div key={i} className="rounded-2xl border border-[#dfe5e7] bg-[#f8fbfa] p-6 shadow-xs flex flex-col justify-between">
-                      <div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white border border-[#dfe5e7]">
-                            {card.icon}
-                          </div>
-                          <span className="font-mulish text-[10px] font-extrabold uppercase tracking-wider text-[#908e92] bg-white px-2.5 py-1 rounded-md border border-[#dfe5e7]">
-                            {card.badge}
-                          </span>
-                        </div>
-                        <h4 className="mt-4 font-extrabold text-base text-[#101820]">{card.title}</h4>
-                        <p className="mt-2 font-mulish text-xs leading-relaxed text-[#65686d]">{card.desc}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-          </div>
-        </section>
+        <OperationsDashboard
+          shipmentsList={shipmentsList}
+          selectedShipment={selectedShipment}
+          setSelectedShipment={setSelectedShipment}
+          isContractUser={isContractUser}
+          contractCompanyName={contractCompanyName}
+          onOpenTrackModal={openTrackModal}
+          onBookNewShipment={() => {
+            setActiveStep(0);
+            scrollToQuote();
+          }}
+          onPreviewDocument={(doc) => setActiveDocumentPreview(doc)}
+          formatInr={formatInr}
+        />
 
         {/* ====================================================================
             SECTION 03: OUR NETWORK (AUTHENTIC NETWORK CARDS)
