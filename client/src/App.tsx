@@ -869,12 +869,16 @@ function App() {
 
     // Asynchronously notify backend API / Floci persistence
     try {
-      const backendUrl =
+      const isLocal =
         typeof window !== 'undefined' &&
         (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
-        window.location.port !== '4000'
-          ? 'http://localhost:4000/api/bookings'
-          : (process.env.NEXT_PUBLIC_API_URL ? `${process.env.NEXT_PUBLIC_API_URL}/api/bookings` : '/api/bookings');
+        window.location.port !== '4000';
+      const cleanApiBase = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
+      const backendUrl = isLocal
+        ? 'http://localhost:4000/api/bookings'
+        : (cleanApiBase ? `${cleanApiBase}/api/bookings` : '/api/bookings');
+
+      console.log('[Booking API] Submitting booking request to:', backendUrl);
 
       fetch(backendUrl, {
         method: 'POST',
@@ -916,9 +920,28 @@ function App() {
           hasWorkedWithJfl: hasWorkedWithJfll,
           jflIdentifier: jfllIdentifier.trim() || undefined,
         }),
-      }).catch(() => {});
-    } catch {
-      // Local state already updated
+      })
+        .then(async (res) => {
+          if (!res.ok) {
+            const errText = await res.text();
+            console.error(`[Booking API] Server returned HTTP ${res.status}:`, errText);
+            return;
+          }
+          const data = await res.json();
+          console.log('[Booking API] Booking successfully saved on backend:', data);
+          if (data.emailDelivery) {
+            if (data.emailDelivery.success) {
+              console.log('[Booking API] Email dispatched successfully:', data.emailDelivery);
+            } else {
+              console.warn('[Booking API] Email dispatch issue:', data.emailDelivery);
+            }
+          }
+        })
+        .catch((err) => {
+          console.error('[Booking API] Network error during booking dispatch:', err);
+        });
+    } catch (err) {
+      console.error('[Booking API] Failed to trigger booking notification:', err);
     }
   };
 

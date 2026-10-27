@@ -63,7 +63,9 @@ export async function handler(event) {
     'GET'
   ).toUpperCase();
 
-  const path = event.rawPath || event.path || '/';
+  const rawPath = event.rawPath || event.path || '/';
+  // Strip duplicate slashes and trailing slashes so //api/bookings and /api/bookings/ route cleanly
+  const path = rawPath.replace(/\/+/g, '/').replace(/(.)\/+$/, '$1') || '/';
 
   // Handle CORS preflight
   if (method === 'OPTIONS') {
@@ -93,6 +95,10 @@ export async function handler(event) {
 
   // 1. GET /api/health
   if (path === '/api/health' || path === '/health' || path === '/') {
+    const hasClientId = Boolean(process.env.GMAIL_CLIENT_ID);
+    const hasClientSecret = Boolean(process.env.GMAIL_CLIENT_SECRET);
+    const hasRefreshToken = Boolean(process.env.GMAIL_REFRESH_TOKEN);
+    const hasUser = Boolean(process.env.GMAIL_USER);
     return {
       statusCode: 200,
       headers: COMMON_HEADERS,
@@ -101,6 +107,16 @@ export async function handler(event) {
         service: 'Jet Freight Backend API',
         runtime: 'AWS Lambda (Serverless)',
         timestamp: new Date().toISOString(),
+        emailConfiguration: {
+          configured: hasClientId && hasClientSecret && hasRefreshToken,
+          hasClientId,
+          clientIdPrefix: process.env.GMAIL_CLIENT_ID ? process.env.GMAIL_CLIENT_ID.substring(0, 15) + '...' : null,
+          hasClientSecret,
+          hasRefreshToken,
+          hasUser,
+          notificationTo: process.env.NOTIFICATION_EMAIL_TO || 'deepak.naidu@jfll.com',
+          notificationFrom: process.env.NOTIFICATION_EMAIL_FROM || 'default',
+        },
       }),
     };
   }
@@ -196,10 +212,12 @@ export async function handler(event) {
 
     saveInquiry(inquiryRecord);
 
+    let emailResult = null;
     try {
-      await sendHeavyCargoInquiryEmail(inquiryRecord);
+      emailResult = await sendHeavyCargoInquiryEmail(inquiryRecord);
     } catch (err) {
       console.error('[EmailService] Lambda heavy cargo notification failed:', err);
+      emailResult = { success: false, error: err.message || String(err) };
     }
 
     return {
@@ -214,6 +232,7 @@ export async function handler(event) {
         message:
           'Heavy cargo inquiry received. Our Sales Coordinator or Pricing Team will contact you soon with custom spot rates.',
         data: inquiryRecord,
+        emailDelivery: emailResult,
       }),
     };
   }
@@ -242,16 +261,22 @@ export async function handler(event) {
       const bookingRecord = saveBooking(validation.data);
 
       // In Lambda, wait for promise to ensure execution before container freezes
+      let emailResult = null;
       try {
-        await sendBookingConfirmationEmail(bookingRecord);
+        emailResult = await sendBookingConfirmationEmail(bookingRecord);
       } catch (err) {
         console.error('[EmailService] Lambda booking notification failed:', err);
+        emailResult = { success: false, error: err.message || String(err) };
       }
 
       return {
         statusCode: 201,
         headers: COMMON_HEADERS,
-        body: JSON.stringify({ success: true, booking: bookingRecord }),
+        body: JSON.stringify({
+          success: true,
+          booking: bookingRecord,
+          emailDelivery: emailResult,
+        }),
       };
     }
 

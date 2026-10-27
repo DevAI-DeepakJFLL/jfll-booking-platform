@@ -33,7 +33,17 @@ jobs:
           echo "=== Checking AWS Credentials Configuration ==="
           KEY_ID="${SECRET_KEY_ID:-${{ vars.AWS_ACCESS_KEY_ID }}}"
           SEC_KEY="${SECRET_KEY:-${{ vars.AWS_SECRET_ACCESS_KEY }}}"
-          REGION="${{ vars.AWS_REGION || 'ap-south-1' }}"
+          
+          # Auto-detect region from NEXT_PUBLIC_API_URL if AWS_REGION is unset
+          API_URL="${{ vars.NEXT_PUBLIC_API_URL }}"
+          if [ -n "${{ vars.AWS_REGION }}" ]; then
+            REGION="${{ vars.AWS_REGION }}"
+          elif [[ "$API_URL" =~ lambda-url\.([a-z0-9-]+)\.on\.aws ]]; then
+            REGION="${BASH_REMATCH[1]}"
+            echo "Auto-detected AWS region from NEXT_PUBLIC_API_URL: $REGION"
+          else
+            REGION="ap-southeast-2"
+          fi
 
           if [ -z "$KEY_ID" ] || [ -z "$SEC_KEY" ]; then
             echo "::error::AWS credentials not found! Please ensure AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are added to GitHub (Repository Settings -> Secrets and variables -> Actions -> Secrets)."
@@ -88,7 +98,16 @@ jobs:
         run: |
           KEY_ID="${SECRET_KEY_ID:-${{ vars.AWS_ACCESS_KEY_ID }}}"
           SEC_KEY="${SECRET_KEY:-${{ vars.AWS_SECRET_ACCESS_KEY }}}"
-          REGION="${{ vars.AWS_REGION || 'ap-south-1' }}"
+          
+          # Auto-detect region from NEXT_PUBLIC_API_URL if AWS_REGION is unset
+          API_URL="${{ vars.NEXT_PUBLIC_API_URL }}"
+          if [ -n "${{ vars.AWS_REGION }}" ]; then
+            REGION="${{ vars.AWS_REGION }}"
+          elif [[ "$API_URL" =~ lambda-url\.([a-z0-9-]+)\.on\.aws ]]; then
+            REGION="${BASH_REMATCH[1]}"
+          else
+            REGION="ap-southeast-2"
+          fi
 
           if [ -z "$KEY_ID" ] || [ -z "$SEC_KEY" ]; then
             echo "::error::AWS credentials missing."

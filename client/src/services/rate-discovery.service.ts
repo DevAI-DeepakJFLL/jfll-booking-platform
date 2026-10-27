@@ -100,12 +100,13 @@ export async function fetchLiveOrCalculatedRates(input: QuoteInput): Promise<Quo
 
   // 1. Try backend API /api/rates/quote
   try {
+    const cleanApiBase = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
     const backendUrl =
       typeof window !== 'undefined' &&
       (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
       window.location.port !== '4000'
         ? 'http://localhost:4000/api/rates/quote'
-        : (process.env.NEXT_PUBLIC_API_URL ? `${process.env.NEXT_PUBLIC_API_URL}/api/rates/quote` : '/api/rates/quote');
+        : (cleanApiBase ? `${cleanApiBase}/api/rates/quote` : '/api/rates/quote');
 
     const res = await fetch(backendUrl, {
       method: 'POST',
@@ -185,12 +186,13 @@ export async function fetchLiveOrCalculatedRates(input: QuoteInput): Promise<Quo
 export async function submitHeavyCargoInquiry(
   input: HeavyCargoInquiryInput
 ): Promise<HeavyCargoInquiryResponse> {
+  const cleanApiBase = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
   const backendUrl =
     typeof window !== 'undefined' &&
     (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
     window.location.port !== '4000'
       ? 'http://localhost:4000/api/inquiries/quote-request'
-      : (process.env.NEXT_PUBLIC_API_URL ? `${process.env.NEXT_PUBLIC_API_URL}/api/inquiries/quote-request` : '/api/inquiries/quote-request');
+      : (cleanApiBase ? `${cleanApiBase}/api/inquiries/quote-request` : '/api/inquiries/quote-request');
 
   try {
     const res = await fetch(backendUrl, {
