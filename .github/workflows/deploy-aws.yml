@@ -70,6 +70,14 @@ jobs:
             --function-name ${{ vars.AWS_LAMBDA_FUNCTION_NAME || 'jfll-booking-api' }} \
             --zip-file fileb://lambda-bundle.zip
 
+      - name: Configure Lambda Function URL CORS
+        continue-on-error: true
+        run: |
+          echo "Updating Function URL CORS configuration..."
+          aws lambda update-function-url-config \
+            --function-name ${{ vars.AWS_LAMBDA_FUNCTION_NAME || 'jfll-booking-api' }} \
+            --cors 'AllowOrigins=["*"],AllowMethods=["GET","POST","OPTIONS"],AllowHeaders=["*"],MaxAge=86400' || echo "Note: If update-function-url-config fails due to IAM permissions, please check 'Configure CORS' on the Function URL in the AWS Console."
+
   # =========================================================================
   # JOB 2: Build & Deploy Frontend to S3 + CloudFront
   # =========================================================================
@@ -128,7 +136,7 @@ jobs:
       - name: Build Next.js Production Bundle
         working-directory: ./client
         env:
-          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL || secrets.NEXT_PUBLIC_API_URL || 'https://52dp2vnbdlsogsjjqgm6oxsvgy0ladtt.lambda-url.ap-southeast-2.on.aws' }}
         run: pnpm run build
 
       - name: Sync Static Assets to S3
