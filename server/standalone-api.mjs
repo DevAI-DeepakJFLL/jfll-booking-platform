@@ -151,7 +151,7 @@ const server = http.createServer(async (req, res) => {
   // GET & POST /api/bookings
   if (url === '/api/bookings') {
     if (req.method === 'GET') {
-      const allBookings = loadBookings();
+      const allBookings = await loadBookings();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ bookings: allBookings }));
       return;
@@ -167,7 +167,7 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
-        const bookingRecord = saveBooking(validation.data);
+        const bookingRecord = await saveBooking(validation.data);
 
         let emailResult = null;
         try {
@@ -195,7 +195,7 @@ const server = http.createServer(async (req, res) => {
   // GET & POST /api/inquiries/quote-request
   if (url === '/api/inquiries/quote-request') {
     if (req.method === 'GET') {
-      const allInquiries = loadInquiries();
+      const allInquiries = await loadInquiries();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ inquiries: allInquiries }));
       return;
@@ -221,7 +221,7 @@ const server = http.createServer(async (req, res) => {
           createdAt: new Date().toISOString(),
         };
 
-        saveInquiry(inquiryRecord);
+        await saveInquiry(inquiryRecord);
 
         let emailResult = null;
         try {

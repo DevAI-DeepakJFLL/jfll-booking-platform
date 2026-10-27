@@ -178,7 +178,7 @@ export async function handler(event) {
   // 3. POST /api/inquiries/quote-request
   if (path === '/api/inquiries/quote-request') {
     if (method === 'GET') {
-      const inquiries = loadInquiries();
+      const inquiries = await loadInquiries();
       return {
         statusCode: 200,
         headers: COMMON_HEADERS,
@@ -209,7 +209,7 @@ export async function handler(event) {
       createdAt: new Date().toISOString(),
     };
 
-    saveInquiry(inquiryRecord);
+    await saveInquiry(inquiryRecord);
 
     let emailResult = null;
     try {
@@ -239,7 +239,7 @@ export async function handler(event) {
   // 4. GET & POST /api/bookings
   if (path === '/api/bookings') {
     if (method === 'GET') {
-      const bookings = loadBookings();
+      const bookings = await loadBookings();
       return {
         statusCode: 200,
         headers: COMMON_HEADERS,
@@ -257,7 +257,7 @@ export async function handler(event) {
         };
       }
 
-      const bookingRecord = saveBooking(validation.data);
+      const bookingRecord = await saveBooking(validation.data);
 
       // In Lambda, wait for promise to ensure execution before container freezes
       let emailResult = null;

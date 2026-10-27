@@ -57,7 +57,7 @@ test('calculateVolumetricWeight calculates IATA 6000 divisor with multi-unit sup
   assert.equal(cbm, 1.0);
 });
 
-test('Durable storage service persists and retrieves bookings and inquiries', () => {
+test('Durable storage service persists and retrieves bookings and inquiries', async () => {
   const testBooking = {
     reference: `TEST-BK-${Date.now()}`,
     origin: 'BOM',
@@ -70,8 +70,8 @@ test('Durable storage service persists and retrieves bookings and inquiries', ()
     createdAt: new Date().toISOString(),
   };
 
-  saveBooking(testBooking);
-  const bookings = loadBookings();
+  await saveBooking(testBooking);
+  const bookings = await loadBookings();
   const found = bookings.find((b) => b.reference === testBooking.reference);
   assert.ok(found, 'Saved booking must be present in loadBookings()');
   assert.equal(found.origin, 'BOM');
@@ -88,8 +88,8 @@ test('Durable storage service persists and retrieves bookings and inquiries', ()
     createdAt: new Date().toISOString(),
   };
 
-  saveInquiry(testInquiry);
-  const inquiries = loadInquiries();
+  await saveInquiry(testInquiry);
+  const inquiries = await loadInquiries();
   const foundInquiry = inquiries.find((i) => i.id === testInquiry.id);
   assert.ok(foundInquiry, 'Saved inquiry must be present in loadInquiries()');
   assert.equal(foundInquiry.origin, 'DEL');
