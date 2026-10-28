@@ -6,7 +6,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { calculateQuote } from './lib/freight-domain.mjs';
+import { calculateQuote, buildRateRouteIndex } from './lib/freight-domain.mjs';
 import {
   validateQuoteInput,
   validateInquiryInput,
@@ -60,6 +60,9 @@ if (fs.existsSync(csvPath)) {
     rates.push(obj);
   }
 }
+
+// Pre-index rates once on cold start by corridor route key for O(1) tariff retrieval
+const ratesIndex = buildRateRouteIndex(rates);
 
 const COMMON_HEADERS = {
   'Content-Type': 'application/json',
@@ -163,6 +166,7 @@ export async function handler(event) {
       volumetricWeight,
       cargoType,
       rates,
+      rateIndex: ratesIndex,
     });
 
     if (quote.chargeableWeight > 500) {

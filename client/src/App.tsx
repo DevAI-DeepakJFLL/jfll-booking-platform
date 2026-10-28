@@ -306,23 +306,21 @@ function App() {
     };
   }, [quote.origin, quote.destination, actualWeight, volumetricWeight, quote.cargoType, chargeableWeight]);
 
-  // Filtered rates list
+  // Filtered rates list - using O(1) precalculated numeric keys
   const filteredRates = useMemo(() => {
     let list = [...dynamicRates];
     if (rateFilter === 'all') {
-      // Natural chronological flight schedule order throughout the day
-      list.sort((a, b) => parseDepartureMinutes(a.departure) - parseDepartureMinutes(b.departure));
+      // Natural chronological flight schedule order - O(1) pure numeric comparison
+      list.sort((a, b) => (a.departureMinutes ?? parseDepartureMinutes(a.departure)) - (b.departureMinutes ?? parseDepartureMinutes(b.departure)));
     } else if (rateFilter === 'cheapest') {
       list.sort((a, b) => {
-        const pA = a.total;
-        const pB = b.total;
-        return sortAsc ? pA - pB : pB - pA;
+        const diff = a.total - b.total;
+        return sortAsc ? diff : -diff;
       });
     } else if (rateFilter === 'fastest') {
       list.sort((a, b) => {
-        const tA = parseTransitMinutes(a.transit);
-        const tB = parseTransitMinutes(b.transit);
-        return sortAsc ? tA - tB : tB - tA;
+        const diff = (a.transitMinutes ?? parseTransitMinutes(a.transit)) - (b.transitMinutes ?? parseTransitMinutes(b.transit));
+        return sortAsc ? diff : -diff;
       });
     } else if (rateFilter === 'direct') {
       list = list.filter((r) => r.direct);

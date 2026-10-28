@@ -225,9 +225,64 @@ export function calculateCbm(length, width, height, pieces = 1, unit = 'cm') {
 }
 
 /**
+ * Parses transit duration strings like "3h 15m" into total minutes
+ */
+export function parseTransitMinutes(transitStr = '') {
+  let minutes = 0;
+  const hMatch = String(transitStr).match(/(\d+)\s*h/i);
+  const mMatch = String(transitStr).match(/(\d+)\s*m/i);
+  if (hMatch) minutes += parseInt(hMatch[1], 10) * 60;
+  if (mMatch) minutes += parseInt(mMatch[1], 10);
+  return minutes > 0 ? minutes : 9999;
+}
+
+/**
+ * Parses daily departure times like "10:10 IST" into minutes since midnight
+ */
+export function parseDepartureMinutes(depStr = '') {
+  const match = String(depStr).match(/(\d{1,2}):(\d{2})/);
+  if (!match) return 9999;
+  return parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
+}
+
+/**
+ * Builds an O(1) hash map indexing rates by corridor key `${origin}-${destination}`.
+ */
+export function buildRateRouteIndex(rates = []) {
+  const index = new Map();
+  for (let i = 0; i < rates.length; i++) {
+    const r = rates[i];
+    const orig = (r.origin || '').toUpperCase().trim();
+    const dest = (r.destination || '').toUpperCase().trim();
+    const key = `${orig}-${dest}`;
+    let bucket = index.get(key);
+    if (!bucket) {
+      bucket = [];
+      index.set(key, bucket);
+    }
+    bucket.push(r);
+  }
+  return index;
+}
+
+// WeakMap memoizes the route index for array references to avoid re-indexing on every call
+const rateIndexCache = new WeakMap();
+
+export function getOrBuildRateIndex(rates) {
+  if (rates instanceof Map) return rates;
+  if (!Array.isArray(rates)) return new Map();
+  let cached = rateIndexCache.get(rates);
+  if (!cached) {
+    cached = buildRateRouteIndex(rates);
+    rateIndexCache.set(rates, cached);
+  }
+  return cached;
+}
+
+/**
  * Calculates live freight quotes against the tariff dataset (IATA TACT rules, weight tiers, surcharges).
  */
-export function calculateQuote({ origin, destination, actualWeight, volumetricWeight, cargoType, rates = [] }) {
+export function calculateQuote({ origin, destination, actualWeight, volumetricWeight, cargoType, rates = [], rateIndex = null }) {
   const rawWeight = Math.max(actualWeight, volumetricWeight);
   // IATA TACT Rule 1.3.2: Chargeable weight rounded up to nearest 0.5 kg
   const chargeableWeight = Math.ceil(rawWeight * 2) / 2;
@@ -235,28 +290,32 @@ export function calculateQuote({ origin, destination, actualWeight, volumetricWe
     return { chargeableWeight: 0, rates: [] };
   }
 
-  // 1. Direct matches in consolidated rates with cargo category filter
-  let matched = rates.filter((r) =>
-    (!origin || r.origin?.toUpperCase() === origin.toUpperCase()) &&
-    (!destination || r.destination?.toUpperCase() === destination.toUpperCase()) &&
-    (!cargoType || r.cargo_category?.toLowerCase() === cargoType.toLowerCase())
-  );
+  const origUpper = (origin || '').toUpperCase().trim();
+  const destUpper = (destination || '').toUpperCase().trim();
+  const routeKey = `${origUpper}-${destUpper}`;
+  const normCargo = (cargoType || '').toLowerCase().trim();
 
-  // Fallback to route if specific cargo category doesn't have custom tariff
+  // 1. O(1) route bucket retrieval via Index
+  const index = rateIndex instanceof Map ? rateIndex : getOrBuildRateIndex(rates);
+  const routeCandidates = index.get(routeKey) || [];
+
+  // Filter within the small corridor bucket rather than full table scan
+  let matched = normCargo
+    ? routeCandidates.filter((r) => r.cargo_category?.toLowerCase() === normCargo)
+    : routeCandidates;
+
+  // Fallback to general route if specific cargo category doesn't have custom tariff
   let isCategoryFallback = false;
-  if (matched.length === 0) {
+  if (matched.length === 0 && routeCandidates.length > 0) {
     isCategoryFallback = true;
-    matched = rates.filter((r) =>
-      (!origin || r.origin?.toUpperCase() === origin.toUpperCase()) &&
-      (!destination || r.destination?.toUpperCase() === destination.toUpperCase())
-    );
+    matched = routeCandidates;
   }
 
   // Fallback for inquiry hubs connecting from BOM
   let isConnecting = false;
-  if (matched.length === 0 && origin?.toUpperCase() === 'BOM') {
+  if (matched.length === 0 && origUpper === 'BOM') {
     isConnecting = true;
-    matched = rates.filter((r) => r.origin === 'BOM' && r.destination === 'DXB');
+    matched = index.get('BOM-DXB') || [];
   }
 
   const calculated = matched.map((r, idx) => {
@@ -357,6 +416,8 @@ export function calculateQuote({ origin, destination, actualWeight, volumetricWe
       departure: schedule.departure,
       arrival: schedule.arrival,
       transit: schedule.transit,
+      departureMinutes: parseDepartureMinutes(schedule.departure),
+      transitMinutes: parseTransitMinutes(schedule.transit),
       chargeableWeight,
       ratePerKg: effectiveRate,
       baseFreight,

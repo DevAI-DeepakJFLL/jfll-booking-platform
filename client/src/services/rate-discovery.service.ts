@@ -4,6 +4,8 @@ import {
   formatAirlineName,
   ROUTE_SCHEDULES,
   getFlightSchedule,
+  parseDepartureMinutes,
+  parseTransitMinutes,
 } from '../lib/freight-domain';
 import { getApiEndpoint } from '../lib/utils';
 
@@ -14,6 +16,30 @@ async function getOfflineRatesData(): Promise<any[]> {
     offlineRatesPromise = import('../data/consolidated-rates.json').then((m) => (m.default || m) as any[]);
   }
   return offlineRatesPromise;
+}
+
+// O(1) Pre-indexed Route Corridor Map
+let offlineRouteIndexPromise: Promise<Map<string, any[]>> | null = null;
+async function getOfflineRateIndex(): Promise<Map<string, any[]>> {
+  if (!offlineRouteIndexPromise) {
+    offlineRouteIndexPromise = getOfflineRatesData().then((data) => {
+      const map = new Map<string, any[]>();
+      for (let i = 0; i < data.length; i++) {
+        const r = data[i];
+        const orig = (r.origin || '').toUpperCase().trim();
+        const dest = (r.destination || '').toUpperCase().trim();
+        const key = `${orig}-${dest}`;
+        let bucket = map.get(key);
+        if (!bucket) {
+          bucket = [];
+          map.set(key, bucket);
+        }
+        bucket.push(r);
+      }
+      return map;
+    });
+  }
+  return offlineRouteIndexPromise;
 }
 
 export {
@@ -34,6 +60,8 @@ export interface RateItem {
   departure: string;
   arrival: string;
   transit: string;
+  departureMinutes?: number;
+  transitMinutes?: number;
   total: number;
   contractTotal?: number;
   base: number;
@@ -140,6 +168,8 @@ export async function fetchLiveOrCalculatedRates(input: QuoteInput): Promise<Quo
             departure: r.departure,
             arrival: r.arrival,
             transit: r.transit,
+            departureMinutes: r.departureMinutes ?? parseDepartureMinutes(r.departure),
+            transitMinutes: r.transitMinutes ?? parseTransitMinutes(r.transit),
             total: r.total,
             contractTotal: r.contractTotal,
             base: r.baseFreight || r.base,
@@ -217,25 +247,21 @@ export async function submitHeavyCargoInquiry(
 }
 
 async function calculateOfflineRates(input: QuoteInput, cw: number) {
-  const consolidatedData = await getOfflineRatesData();
+  const routeIndex = await getOfflineRateIndex();
   const destUpper = input.destination.toUpperCase();
   const origUpper = input.origin.toUpperCase();
+  const routeKey = `${origUpper}-${destUpper}`;
 
-  const matching = (consolidatedData as any[]).filter(
-    (r) =>
-      r.origin?.toUpperCase() === origUpper &&
-      (r.destination?.toUpperCase() === destUpper || (destUpper === 'DXB' && r.destination === 'DXB')) &&
-      (!input.cargoType || r.cargo_category?.toLowerCase() === input.cargoType.toLowerCase())
-  );
+  // O(1) route corridor lookup
+  const routeCandidates = routeIndex.get(routeKey) || (destUpper === 'DXB' ? routeIndex.get(`${origUpper}-DXB`) : []) || [];
+  const normCargo = (input.cargoType || '').toLowerCase().trim();
 
-  const fallbackRoute = (consolidatedData as any[]).filter(
-    (r) =>
-      r.origin?.toUpperCase() === origUpper &&
-      (r.destination?.toUpperCase() === destUpper || (destUpper === 'DXB' && r.destination === 'DXB'))
-  );
+  const matching = normCargo
+    ? routeCandidates.filter((r) => r.cargo_category?.toLowerCase() === normCargo)
+    : routeCandidates;
 
   const isCategoryFallback = matching.length === 0;
-  const pool = matching.length > 0 ? matching : fallbackRoute.length > 0 ? fallbackRoute : (consolidatedData as any[]).slice(0, 15);
+  const pool = matching.length > 0 ? matching : routeCandidates.length > 0 ? routeCandidates : (await getOfflineRatesData()).slice(0, 15);
 
   const rates: RateItem[] = pool.map((r, idx) => {
     // IATA TACT Rule 2.2: Commodity Classification Rates (CCR) & Statutory Surcharges
@@ -329,6 +355,8 @@ async function calculateOfflineRates(input: QuoteInput, cw: number) {
       departure: schedule.departure,
       arrival: schedule.arrival,
       transit: schedule.transit,
+      departureMinutes: parseDepartureMinutes(schedule.departure),
+      transitMinutes: parseTransitMinutes(schedule.transit),
       total,
       contractTotal: Math.round(total * 0.92),
       base: baseFreight,

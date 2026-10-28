@@ -121,7 +121,8 @@ export async function loadBookings(forceRefresh = false) {
         const { ScanCommand } = await import('@aws-sdk/lib-dynamodb');
         const res = await client.send(new ScanCommand({ TableName: table, Limit: 50 }));
         const items = res.Items || [];
-        items.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+        // Lexicographical ISO timestamp sort eliminates O(M log M) Date allocations
+        items.sort((a, b) => (b.createdAt > a.createdAt ? 1 : b.createdAt < a.createdAt ? -1 : 0));
         return items;
       }
     } catch (err) {
@@ -203,7 +204,8 @@ export async function loadInquiries(forceRefresh = false) {
         const { ScanCommand } = await import('@aws-sdk/lib-dynamodb');
         const res = await client.send(new ScanCommand({ TableName: table, Limit: 50 }));
         const items = res.Items || [];
-        items.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+        // Lexicographical ISO timestamp sort eliminates O(M log M) Date allocations
+        items.sort((a, b) => (b.createdAt > a.createdAt ? 1 : b.createdAt < a.createdAt ? -1 : 0));
         return items;
       }
     } catch (err) {

@@ -100,6 +100,8 @@ export type Rate = {
   departure: string;
   arrival: string;
   transit: string;
+  departureMinutes?: number;
+  transitMinutes?: number;
   total: number;
   contractTotal?: number;
   base: number;

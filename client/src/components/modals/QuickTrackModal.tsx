@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Search, X } from 'lucide-react';
 
@@ -37,6 +37,26 @@ export function QuickTrackModal<T extends ShipmentRecordSummary = ShipmentRecord
   const [trackQuery, setTrackQuery] = useState('');
   const [trackResult, setTrackResult] = useState<T | null>(null);
 
+  // DSA Inverted Index: O(1) hash lookup table for exact references, AWBs, clean digits, and flights
+  const lookupIndex = useMemo(() => {
+    const map = new Map<string, T>();
+    for (let i = 0; i < shipmentsList.length; i++) {
+      const s = shipmentsList[i];
+      if (s.reference) map.set(s.reference.trim().toUpperCase(), s);
+      if (s.awbNumber) {
+        const awb = s.awbNumber.trim().toUpperCase();
+        map.set(awb, s);
+        const digits = awb.replace(/\D/g, '');
+        if (digits.length >= 7) map.set(digits, s);
+      }
+      if (s.flight) {
+        map.set(s.flight.trim().toUpperCase(), s);
+        map.set(s.flight.trim().toUpperCase().replace(/\s+/g, ''), s);
+      }
+    }
+    return map;
+  }, [shipmentsList]);
+
   const handleLookup = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const query = trackQuery.trim().toUpperCase();
@@ -44,6 +64,16 @@ export function QuickTrackModal<T extends ShipmentRecordSummary = ShipmentRecord
       setTrackResult(null);
       return;
     }
+    // 1. O(1) direct inverted index hit
+    const exact =
+      lookupIndex.get(query) ||
+      lookupIndex.get(query.replace(/\D/g, '')) ||
+      lookupIndex.get(query.replace(/\s+/g, ''));
+    if (exact) {
+      setTrackResult(exact);
+      return;
+    }
+    // 2. Fallback to linear scan for partial substring matching
     const found = shipmentsList.find(
       (s) =>
         s.reference.toUpperCase().includes(query) ||
@@ -55,10 +85,16 @@ export function QuickTrackModal<T extends ShipmentRecordSummary = ShipmentRecord
 
   const handleChipSelect = (code: string) => {
     setTrackQuery(code);
+    const normalized = code.trim().toUpperCase();
+    const exact = lookupIndex.get(normalized);
+    if (exact) {
+      setTrackResult(exact);
+      return;
+    }
     const found = shipmentsList.find(
       (s) =>
-        s.reference.toUpperCase().includes(code.toUpperCase()) ||
-        s.awbNumber.toUpperCase().includes(code.toUpperCase())
+        s.reference.toUpperCase().includes(normalized) ||
+        s.awbNumber.toUpperCase().includes(normalized)
     );
     setTrackResult(found ?? null);
   };
